@@ -1,0 +1,92 @@
+.seo-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+/* 🔹 Top Controls Alignment */
+.dataTables_wrapper .dataTables_filter {
+    float: right;
+    text-align: right;
+}
+
+.dataTables_wrapper .dataTables_length {
+    float: left;
+}
+
+/* 🔥 Pagination RIGHT FIX (Bootstrap 5 Compatible) */
+.dataTables_wrapper .dataTables_paginate {
+    float: right !important;
+    text-align: right !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    justify-content: flex-end !important;
+}
+
+/* 🔹 Buttons Styling */
+.dataTables_wrapper .dt-buttons {
+    float: left;
+}
+
+.dataTables_wrapper .dt-buttons .btn {
+    /* margin-right: 5px; */
+    /* border-radius: 6px; */
+    padding: 5px 12px;
+}
+
+/* 🔹 Length Dropdown */
+.dataTables_wrapper .dataTables_length select {
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+/* 🔹 Search Box */
+.dataTables_wrapper .dataTables_filter input {
+    border-radius: 20px;
+    padding: 5px 12px;
+    border: 1px solid #ccc;
+}
+
+/* 🔥 CENTER EMPTY / NO RECORD MESSAGE */
+table.dataTable tbody td.dataTables_empty {
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 40px 0 !important;
+    font-size: 16px;
+    color: #888;
+    width: 100% !important;
+}
+
+/* Extra strong force */
+.dataTables_empty {
+    text-align: center !important;
+}
+
+/* 🔹 Table Header */
+/* .table thead th {
+    background-color: #1d3557;
+    color: #fff;
+    font-weight: 500;
+} */
+
+/* 🔹 Pagination Buttons */
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border-radius: 6px !important;
+    margin: 2px;
+}
+
+/* 🔹 Active Page */
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #007bff !important;
+    color: #fff !important;
+    border: none;
+}
+
+/* 🔥 FIX: Bottom Row Alignment */
+.dataTables_wrapper .row:last-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
