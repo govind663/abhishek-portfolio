@@ -39,8 +39,8 @@ HRMS Portfolio, CRM Portfolio, ERP Portfolio, Payment Gateway Integration Portfo
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
-                    <li><a href="{{ route('frontend.portfolio') }}">Portfolio</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
+                    <li><a href="{{ route('frontend.portfolio') }}" title="Portfolio">Portfolio</a></li>
                     <li class="current">Portfolio Details</li>
                 </ol>
             </div>

@@ -137,7 +137,7 @@ Thank You, Contact Success, Form Submitted, Abhishek Jha Thank You Page
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">Thak You</li>
                 </ol>
             </div>

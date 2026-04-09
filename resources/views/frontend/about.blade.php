@@ -43,7 +43,7 @@ Full Stack Developer Portfolio, Abhishek Profile, Developer Story, Career Journe
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">About Us</li>
                 </ol>
             </div>

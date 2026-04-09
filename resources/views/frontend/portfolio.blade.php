@@ -43,7 +43,7 @@ CRM Project Developer, E-commerce Portfolio, Full Stack Developer Works
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">Portfolio</li>
                 </ol>
             </div>

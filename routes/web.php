@@ -25,6 +25,11 @@ use App\Http\Controllers\backend\BrandDescriptionController;
 use App\Http\Controllers\backend\SocialLinkController;
 use App\Http\Controllers\backend\ContactController;
 use App\Http\Controllers\backend\CopyrightController;
+use App\Http\Controllers\backend\PageTitleController;
+use App\Http\Controllers\backend\AboutController;
+use App\Http\Controllers\backend\StatController;
+use App\Http\Controllers\backend\SkillController;
+use App\Http\Controllers\backend\FeatureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -153,6 +158,21 @@ Route::group([
     // ===== Hero Resource
     Route::resource('hero', HeroController::class);
 
+    // ===== Page Titles Resource
+    Route::resource('page-titles', PageTitleController::class);
+    
+    // ===== About Resource
+    Route::resource('about', AboutController::class);
+
+    // ==== Stats Resource
+    Route::resource('stats', StatController::class);
+    
+    // ==== Skills Resource
+    Route::resource('skills', SkillController::class);
+
+    // ===== Features Resource
+    Route::resource('features', FeatureController::class);
+    
     // ===== Brand Description Resource
     Route::resource('brand-description', BrandDescriptionController::class);
 

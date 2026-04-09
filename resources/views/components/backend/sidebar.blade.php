@@ -133,6 +133,76 @@
                     </ul>
                 </li>
 
+                {{-- About Us Management --}}
+                <li class="dropdown">
+                    <a href="javascript:;" class="dropdown-toggle">
+                        <span class="micon bi bi-person-badge"></span>
+                        <span class="mtext">About Us Management</span>
+                    </a>
+
+                    @php
+                        $aboutRoutes = [
+                            'page-titles.*',
+                            'about.*',
+                            'skills.*',
+                            'stats.*',
+                            'features.*'
+                        ];
+
+                        $isAboutActive = false;
+                        foreach ($aboutRoutes as $route) {
+                            if (request()->routeIs($route)) {
+                                $isAboutActive = true;
+                                break;
+                            }
+                        }
+                    @endphp
+
+                    <ul class="submenu {{ $isAboutActive ? 'show' : '' }}">
+
+                        {{-- Page Titles --}}
+                        <li>
+                            <a href="{{ route('page-titles.index') }}" 
+                            class="{{ request()->routeIs('page-titles.*') ? 'active' : '' }}">
+                                Page Titles
+                            </a>
+                        </li>
+
+                        {{-- About Content --}}
+                        <li>
+                            <a href="{{ route('about.index') }}" 
+                            class="{{ request()->routeIs('about.*') ? 'active' : '' }}">
+                                About Info
+                            </a>
+                        </li>
+
+                        {{-- Stats --}}
+                        <li>
+                            <a href="{{ route('stats.index') }}" 
+                            class="{{ request()->routeIs('stats.*') ? 'active' : '' }}">
+                                Stats (Counters)
+                            </a>
+                        </li>
+
+                        {{-- Skills --}}
+                        <li>
+                            <a href="{{ route('skills.index') }}" 
+                            class="{{ request()->routeIs('skills.*') ? 'active' : '' }}">
+                                Skills
+                            </a>
+                        </li>
+
+                        {{-- Features --}}
+                        <li>
+                            <a href="{{ route('features.index') }}" 
+                            class="{{ request()->routeIs('features.*') ? 'active' : '' }}">
+                                Features
+                            </a>
+                        </li>
+
+                    </ul>
+                </li>
+
                 {{-- Footer Management --}}
                 <li class="dropdown">
                     <a href="javascript:;" class="dropdown-toggle">

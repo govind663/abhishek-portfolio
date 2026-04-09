@@ -39,7 +39,7 @@ Software Engineer Resume, Web Developer CV, Professional Resume Abhishek
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">Resume</li>
                 </ol>
             </div>

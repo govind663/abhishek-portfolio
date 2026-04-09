@@ -42,7 +42,7 @@ Custom Web App Services, Abhishek Jha Services, PHP Developer Services
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">Services</li>
                 </ol>
             </div>

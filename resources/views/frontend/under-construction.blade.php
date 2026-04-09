@@ -137,7 +137,7 @@ Abhishek Jha | Under Construction
         <nav class="breadcrumbs">
             <div class="container">
                 <ol>
-                    <li><a href="{{ route('frontend.home') }}">Home</a></li>
+                    <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
                     <li class="current">Under Construction</li>
                 </ol>
             </div>
