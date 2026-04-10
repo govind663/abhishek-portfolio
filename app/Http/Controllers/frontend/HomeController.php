@@ -9,6 +9,11 @@ use App\Models\HeroSection;
 use Illuminate\Http\Request;
 use App\Mail\ContactAdminMail;
 use App\Mail\ContactThankYouMail;
+use App\Models\AboutSection;
+use App\Models\Feature;
+use App\Models\PageTitle;
+use App\Models\Skill;
+use App\Models\Stat;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +37,33 @@ class HomeController extends Controller
     // ==== About
     public function about(Request $request)
     {
-        return view('frontend.about');
+        $pageTitle = Cache::remember('page_title_about', 3600, function () {
+            return PageTitle::where('page_name', 'About Us')->first();
+        });
+
+        $about = Cache::remember('about_section', 3600, function () {
+            return AboutSection::first();
+        });
+
+        $stats = Cache::remember('stats', 3600, function () {
+            return Stat::active()->get();
+        });
+
+        $skills = Cache::remember('skills', 3600, function () {
+            return Skill::active()->get();
+        });
+
+        $features = Cache::remember('features', 3600, function () {
+            return Feature::active()->get();
+        });
+
+        return view('frontend.about', [
+            'pageTitle' => $pageTitle,
+            'about'     => $about,
+            'stats'     => $stats,
+            'skills'    => $skills,
+            'features'  => $features,
+        ]);
     }
 
     // ==== Resume

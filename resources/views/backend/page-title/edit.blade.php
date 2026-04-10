@@ -87,7 +87,7 @@ Update Page Title
                         <div class="form-group">
                             <label><b>Description : <span class="text-danger">*</span></b></label>
                             <textarea name="description" id="description" rows="4"
-                                class="form-control @error('description') is-invalid @enderror"
+                                class="textarea_editor form-control border-radius-0 @error('description') is-invalid @enderror"
                                 placeholder="Enter page description">{{ old('description', $pageTitle->description) }}</textarea>
                             @error('description')
                                 <span class="invalid-feedback" role="alert">

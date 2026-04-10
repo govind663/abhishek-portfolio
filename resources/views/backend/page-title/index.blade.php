@@ -57,7 +57,7 @@ Manage Page Titles
 
                                 <td>{{ Str::limit($item->title, 40) }}</td>
 
-                                <td>{{ Str::limit($item->description, 50) }}</td>
+                                <td>{!! Str::limit($item->description, 50) !!}</td>
 
                                 {{-- Status --}}
                                 <td>
