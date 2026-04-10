@@ -8,31 +8,43 @@ use Symfony\Component\Console\Command\Command as SymfonyCommand;
 
 class MakeRepository extends Command
 {
-    protected $signature = 'make:repository {name}';
-    protected $description = 'Create a new repository class';
+    // ✅ NOW SUPPORT MULTIPLE ARGUMENTS
+    protected $signature = 'make:repository {names*}';
+
+    protected $description = 'Create one or multiple repository classes';
 
     public function handle()
     {
-        $name = str_replace('\\', '/', $this->argument('name'));
+        $names = $this->argument('names');
 
-        $path = app_path("Repositories/{$name}.php");
-        $directory = dirname($path);
+        foreach ($names as $name) {
 
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true, true);
+            $name = str_replace('\\', '/', $name);
+
+            // ✅ Auto append Repository if not provided
+            if (!str_ends_with($name, 'Repository')) {
+                $name .= 'Repository';
+            }
+
+            $path = app_path("Repositories/{$name}.php");
+            $directory = dirname($path);
+
+            if (!File::exists($directory)) {
+                File::makeDirectory($directory, 0755, true, true);
+            }
+
+            if (File::exists($path)) {
+                $this->warn("⚠️ Already exists: {$name}");
+                continue;
+            }
+
+            $className = class_basename($name);
+            $namespace = $this->getNamespace($name);
+
+            File::put($path, $this->getStub($namespace, $className));
+
+            $this->info("✅ Created: {$namespace}\\{$className}");
         }
-
-        if (File::exists($path)) {
-            $this->error("❌ Repository already exists!");
-            return SymfonyCommand::FAILURE;
-        }
-
-        $className = class_basename($name);
-        $namespace = $this->getNamespace($name);
-
-        File::put($path, $this->getStub($namespace, $className));
-
-        $this->info("✅ Repository created: {$namespace}\\{$className}");
 
         return SymfonyCommand::SUCCESS;
     }
@@ -48,49 +60,49 @@ class MakeRepository extends Command
     protected function getStub($namespace, $className)
     {
         return <<<PHP
-        <?php
+<?php
 
-        namespace {$namespace};
+namespace {$namespace};
 
-        use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
-        class {$className}
-        {
-            protected \$model;
+class {$className}
+{
+    protected \$model;
 
-            public function __construct(Model \$model)
-            {
-                \$this->model = \$model;
-            }
+    public function __construct(Model \$model)
+    {
+        \$this->model = \$model;
+    }
 
-            public function all()
-            {
-                return \$this->model->all();
-            }
+    public function all()
+    {
+        return \$this->model->all();
+    }
 
-            public function find(\$id)
-            {
-                return \$this->model->findOrFail(\$id);
-            }
+    public function find(\$id)
+    {
+        return \$this->model->findOrFail(\$id);
+    }
 
-            public function create(array \$data)
-            {
-                return \$this->model->create(\$data);
-            }
+    public function create(array \$data)
+    {
+        return \$this->model->create(\$data);
+    }
 
-            public function update(\$id, array \$data)
-            {
-                \$model = \$this->find(\$id);
-                \$model->update(\$data);
-                return \$model;
-            }
+    public function update(\$id, array \$data)
+    {
+        \$model = \$this->find(\$id);
+        \$model->update(\$data);
+        return \$model;
+    }
 
-            public function delete(\$id)
-            {
-                \$model = \$this->find(\$id);
-                return \$model->delete();
-            }
-        }
-        PHP;
+    public function delete(\$id)
+    {
+        \$model = \$this->find(\$id);
+        return \$model->delete();
+    }
+}
+PHP;
     }
 }

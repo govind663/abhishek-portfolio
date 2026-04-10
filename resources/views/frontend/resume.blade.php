@@ -386,7 +386,7 @@ Software Engineer Resume, Web Developer CV, Professional Resume Abhishek
         </div>
 
     </section>
-    <!-- /Resume Section -->
+    <!-- /Resume Section --> 
 @endsection
 
 @push('scripts')

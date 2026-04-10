@@ -30,6 +30,7 @@ use App\Http\Controllers\backend\AboutController;
 use App\Http\Controllers\backend\StatController;
 use App\Http\Controllers\backend\SkillController;
 use App\Http\Controllers\backend\FeatureController;
+use App\Http\Controllers\backend\ResumeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -172,6 +173,9 @@ Route::group([
 
     // ===== Features Resource
     Route::resource('features', FeatureController::class);
+
+    // ==== Resume Resource
+    Route::resource('resume', ResumeController::class);
     
     // ===== Brand Description Resource
     Route::resource('brand-description', BrandDescriptionController::class);
@@ -184,6 +188,7 @@ Route::group([
     
     // ===== Copyrights Resource
     Route::resource('copyrights', CopyrightController::class);
+    
 });
 
 

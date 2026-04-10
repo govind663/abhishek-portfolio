@@ -1,3 +1,28 @@
+<style>
+    /* Dashboard */
+    .bi-house-door { color: #ff6b6b !important; }
+
+    /* Home */
+    .bi-house { color: #4dabf7 !important; }
+
+    /* About */
+    .bi-person-badge { color: #51cf66 !important; }
+
+    /* Resume */
+    .bi-file-earmark-text { color: #f59f00 !important; }
+
+    /* Page Titles */
+    .bi-card-heading { color: #845ef7 !important; }
+
+    /* Footer */
+    .bi-layout-text-window { color: #20c997 !important; }
+
+    /* SEO */
+    .bi-search { color: #e64980 !important; }
+
+    /* Settings */
+    .bi-gear { color: #6f757a !important; }
+</style>
 {{-- Right Sidebar --}}
 <div class="right-sidebar">
     <div class="sidebar-title">
@@ -110,13 +135,14 @@
             <ul id="accordion-menu">
                 {{-- Dashboard --}}
                 <li>
-                    <a href="{{ route('admin.dashboard') }}" class="dropdown-toggle no-arrow {{ (Route::currentRouteName() === 'admin.dashboard') ? 'active' : '' }}">
+                    <a href="{{ route('admin.dashboard') }}" 
+                    class="dropdown-toggle no-arrow {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                         <span class="micon bi bi-house-door"></span>
                         <span class="mtext">Dashboard</span>
                     </a>
                 </li>
 
-                {{-- Home Page Management --}}
+                {{-- Home Management --}}
                 <li class="dropdown">
                     <a href="javascript:;" class="dropdown-toggle">
                         <span class="micon bi bi-house"></span>
@@ -141,34 +167,12 @@
                     </a>
 
                     @php
-                        $aboutRoutes = [
-                            'page-titles.*',
-                            'about.*',
-                            'skills.*',
-                            'stats.*',
-                            'features.*'
-                        ];
-
-                        $isAboutActive = false;
-                        foreach ($aboutRoutes as $route) {
-                            if (request()->routeIs($route)) {
-                                $isAboutActive = true;
-                                break;
-                            }
-                        }
+                        $aboutRoutes = ['about.*', 'skills.*', 'stats.*', 'features.*'];
+                        $isAboutActive = collect($aboutRoutes)->contains(fn($route) => request()->routeIs($route));
                     @endphp
 
                     <ul class="submenu {{ $isAboutActive ? 'show' : '' }}">
 
-                        {{-- Page Titles --}}
-                        <li>
-                            <a href="{{ route('page-titles.index') }}" 
-                            class="{{ request()->routeIs('page-titles.*') ? 'active' : '' }}">
-                                Page Titles
-                            </a>
-                        </li>
-
-                        {{-- About Content --}}
                         <li>
                             <a href="{{ route('about.index') }}" 
                             class="{{ request()->routeIs('about.*') ? 'active' : '' }}">
@@ -176,7 +180,6 @@
                             </a>
                         </li>
 
-                        {{-- Stats --}}
                         <li>
                             <a href="{{ route('stats.index') }}" 
                             class="{{ request()->routeIs('stats.*') ? 'active' : '' }}">
@@ -184,7 +187,6 @@
                             </a>
                         </li>
 
-                        {{-- Skills --}}
                         <li>
                             <a href="{{ route('skills.index') }}" 
                             class="{{ request()->routeIs('skills.*') ? 'active' : '' }}">
@@ -192,7 +194,6 @@
                             </a>
                         </li>
 
-                        {{-- Features --}}
                         <li>
                             <a href="{{ route('features.index') }}" 
                             class="{{ request()->routeIs('features.*') ? 'active' : '' }}">
@@ -203,6 +204,32 @@
                     </ul>
                 </li>
 
+                {{-- Resume Management --}}
+                <li class="dropdown">
+                    <a href="javascript:;" class="dropdown-toggle">
+                        <span class="micon bi bi-file-earmark-text"></span>
+                        <span class="mtext">Resume Management</span>
+                    </a>
+
+                    <ul class="submenu {{ request()->routeIs('resume.*') ? 'show' : '' }}">
+                        <li>
+                            <a href="{{ route('resume.index') }}" 
+                            class="{{ request()->routeIs('resume.*') ? 'active' : '' }}">
+                                Resume Info
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                {{-- Page Titles (SEO Content) --}}
+                <li>
+                    <a href="{{ route('page-titles.index') }}" 
+                    class="dropdown-toggle no-arrow {{ request()->routeIs('page-titles.*') ? 'active' : '' }}">
+                        <span class="micon bi bi-card-heading"></span>
+                        <span class="mtext">Page Titles</span>
+                    </a>
+                </li>
+
                 {{-- Footer Management --}}
                 <li class="dropdown">
                     <a href="javascript:;" class="dropdown-toggle">
@@ -211,9 +238,11 @@
                     </a>
 
                     <ul class="submenu 
-                        {{ request()->routeIs('brand-description.*') || request()->routeIs('social-links.*') || request()->routeIs('contacts.*') || request()->routeIs('copyrights.*') ? 'show' : '' }}">
+                        {{ request()->routeIs('brand-description.*') || 
+                        request()->routeIs('social-links.*') || 
+                        request()->routeIs('contacts.*') || 
+                        request()->routeIs('copyrights.*') ? 'show' : '' }}">
 
-                        {{-- Brand Description --}}
                         <li>
                             <a href="{{ route('brand-description.index') }}" 
                             class="{{ request()->routeIs('brand-description.*') ? 'active' : '' }}">
@@ -221,7 +250,6 @@
                             </a>
                         </li>
 
-                        {{-- Social Links --}}
                         <li>
                             <a href="{{ route('social-links.index') }}" 
                             class="{{ request()->routeIs('social-links.*') ? 'active' : '' }}">
@@ -229,7 +257,6 @@
                             </a>
                         </li>
 
-                        {{-- Contacts (CRUD) --}}
                         <li>
                             <a href="{{ route('contacts.index') }}" 
                             class="{{ request()->routeIs('contacts.*') ? 'active' : '' }}">
@@ -237,7 +264,6 @@
                             </a>
                         </li>
 
-                        {{-- Copyrights --}}
                         <li>
                             <a href="{{ route('copyrights.index') }}" 
                             class="{{ request()->routeIs('copyrights.*') ? 'active' : '' }}">
@@ -250,8 +276,8 @@
 
                 {{-- SEO Settings --}}
                 <li>
-                    <a href="{{ route('seo-settings.index') }}" class="dropdown-toggle no-arrow 
-                    {{ request()->routeIs('seo-settings.*') ? 'active' : '' }}">
+                    <a href="{{ route('seo-settings.index') }}" 
+                    class="dropdown-toggle no-arrow {{ request()->routeIs('seo-settings.*') ? 'active' : '' }}">
                         <span class="micon bi bi-search"></span>
                         <span class="mtext">SEO Settings</span>
                     </a>
@@ -267,20 +293,21 @@
                     <ul class="submenu {{ request()->routeIs('change-password') || request()->routeIs('admin.profile') ? 'show' : '' }}">
                         
                         <li>
-                            <a href="{{ route('change-password') }}" class="{{ request()->routeIs('change-password') ? 'active' : '' }}">
+                            <a href="{{ route('change-password') }}" 
+                            class="{{ request()->routeIs('change-password') ? 'active' : '' }}">
                                 Change Password
                             </a>
                         </li>
 
                         <li>
-                            <a href="{{ route('admin.profile') }}" class="{{ request()->routeIs('admin.profile') ? 'active' : '' }}">
+                            <a href="{{ route('admin.profile') }}" 
+                            class="{{ request()->routeIs('admin.profile') ? 'active' : '' }}">
                                 Profile
                             </a>
                         </li>
 
                     </ul>
                 </li>
-
             </ul>
         </div>
     </div>
