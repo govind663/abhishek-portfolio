@@ -16,7 +16,7 @@ Create Social Link
                     <div class="title">
                         <h4>Create Social Link</h4>
                     </div>
-                    <nav aria-label="breadcrumb" role="navigation">
+                    <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             <li class="breadcrumb-item">
                                 <a href="{{ route('admin.dashboard') }}">Home</a>
@@ -24,7 +24,7 @@ Create Social Link
                             <li class="breadcrumb-item">
                                 <a href="{{ route('social-links.index') }}">Manage Social Links</a>
                             </li>
-                            <li class="breadcrumb-item active" aria-current="page">
+                            <li class="breadcrumb-item active">
                                 Create Social Link
                             </li>
                         </ol>
@@ -33,7 +33,8 @@ Create Social Link
             </div>
         </div>
 
-        <form action="{{ route('social-links.store') }}" method="POST" enctype="multipart/form-data">
+        {{-- FORM --}}
+        <form action="{{ route('social-links.store') }}" method="POST">
             @csrf
 
             <div class="card-box pd-20 mb-30">
@@ -48,12 +49,13 @@ Create Social Link
                     <div class="col-md-6">
                         <div class="form-group">
                             <label><b>Platform : <span class="text-danger">*</span></b></label>
-                            <input type="text" name="platform" id="platform"
+                            <input type="text" name="platform"
                                 class="form-control @error('platform') is-invalid @enderror"
                                 value="{{ old('platform') }}"
                                 placeholder="e.g., Facebook, LinkedIn">
+
                             @error('platform') 
-                                <span class="invalid-feedback" role="alert">
+                                <span class="invalid-feedback">
                                     <strong>{{ $message }}</strong>
                                 </span> 
                             @enderror
@@ -64,13 +66,21 @@ Create Social Link
                     <div class="col-md-6">
                         <div class="form-group">
                             <label><b>Icon : <span class="text-danger">*</span></b></label>
+                            
                             <input type="text" name="icon" id="icon"
                                 class="form-control @error('icon') is-invalid @enderror"
                                 value="{{ old('icon') }}"
-                                placeholder="e.g., bi bi-facebook">
-                            <small class="text-secondary">Use Bootstrap Icons or FontAwesome classes</small>
+                                placeholder="e.g., bi bi-facebook OR fa fa-facebook">
+
+                            <small class="text-secondary">
+                                Use Bootstrap Icons or FontAwesome classes
+                            </small>
+
+                            {{-- 🔥 Live Preview --}}
+                            <div id="icon-preview" class="mt-3" style="font-size:30px;"></div>
+
                             @error('icon') 
-                                <span class="invalid-feedback" role="alert">
+                                <span class="invalid-feedback">
                                     <strong>{{ $message }}</strong>
                                 </span> 
                             @enderror
@@ -81,12 +91,13 @@ Create Social Link
                     <div class="col-md-12">
                         <div class="form-group">
                             <label><b>URL : <span class="text-danger">*</span></b></label>
-                            <input type="url" name="url" id="url"
+                            <input type="url" name="url"
                                 class="form-control @error('url') is-invalid @enderror"
                                 value="{{ old('url') }}"
                                 placeholder="https://example.com/username">
+
                             @error('url') 
-                                <span class="invalid-feedback" role="alert">
+                                <span class="invalid-feedback">
                                     <strong>{{ $message }}</strong>
                                 </span> 
                             @enderror
@@ -100,14 +111,15 @@ Create Social Link
                 <hr>
 
                 <div class="form-group col-md-6">
-                    <select name="status" id="status"
+                    <select name="status"
                         class="form-control custom-select2 @error('status') is-invalid @enderror">
                         <option value="">Select Status</option>
                         <option value="active" {{ old('status')=='active'?'selected':'' }}>Active</option>
                         <option value="inactive" {{ old('status')=='inactive'?'selected':'' }}>Inactive</option>
                     </select>
+
                     @error('status') 
-                        <span class="invalid-feedback" role="alert">
+                        <span class="invalid-feedback">
                             <strong>{{ $message }}</strong>
                         </span> 
                     @enderror
@@ -125,3 +137,31 @@ Create Social Link
     </div>
 </div>
 @endsection
+
+{{-- 🔥 SCRIPTS --}}
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const iconInput = document.getElementById('icon');
+    const preview = document.getElementById('icon-preview');
+
+    function updatePreview() {
+        if (!iconInput || !preview) return;
+
+        const iconClass = iconInput.value.trim();
+
+        preview.innerHTML = iconClass 
+            ? `<i class="${iconClass}"></i>` 
+            : '';
+    }
+
+    // ✅ Live preview
+    iconInput.addEventListener('input', updatePreview);
+
+    // ✅ Load preview (old value case)
+    updatePreview();
+
+});
+</script>
+@endpush
