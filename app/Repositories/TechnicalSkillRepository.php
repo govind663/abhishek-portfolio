@@ -3,7 +3,9 @@
 namespace App\Repositories;
 
 use App\Models\TechnicalSkill;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class TechnicalSkillRepository
 {
@@ -16,12 +18,14 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL
+    | GET ALL (PAGINATED)
     |--------------------------------------------------------------------------
     */
-    public function all()
+    public function all($perPage = 10)
     {
-        return $this->model->latest('id')->get();
+        return $this->model
+            ->latest('id')
+            ->paginate($perPage);
     }
 
     /*
@@ -32,6 +36,19 @@ class TechnicalSkillRepository
     public function find($id)
     {
         return $this->model->findOrFail($id);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND BY RESUME (SECURE)
+    |--------------------------------------------------------------------------
+    */
+    public function findByResume($id, $resumeId)
+    {
+        return $this->model
+            ->where('id', $id)
+            ->where('resume_id', $resumeId)
+            ->firstOrFail();
     }
 
     /*
@@ -68,21 +85,22 @@ class TechnicalSkillRepository
     | DELETE SINGLE
     |--------------------------------------------------------------------------
     */
-    public function delete($id)
+    public function delete($id): bool
     {
-        return $this->find($id)->delete();
+        return (bool) $this->find($id)->delete();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | GET BY RESUME
+    | 🔥 GET BY RESUME (SAFE)
     |--------------------------------------------------------------------------
     */
-    public function getByResume($resumeId)
+    public function getByResume($resumeId): Collection
     {
         return $this->model
             ->where('resume_id', $resumeId)
-            ->get();
+            ->latest('id')
+            ->get() ?? collect();
     }
 
     /*
@@ -90,105 +108,146 @@ class TechnicalSkillRepository
     | DELETE BY RESUME
     |--------------------------------------------------------------------------
     */
-    public function deleteByResume($resumeId)
+    public function deleteByResume($resumeId): bool
     {
-        return $this->model
+        $this->model
             ->where('resume_id', $resumeId)
             ->delete();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BULK INSERT
-    |--------------------------------------------------------------------------
-    */
-    public function bulkInsert(array $skills, $resumeId)
-    {
-        if (empty($skills)) {
-            return false;
-        }
-
-        $now = now();
-        $userId = Auth::id();
-
-        $data = array_map(function ($skill) use ($resumeId, $now, $userId) {
-            return [
-                'resume_id'    => $resumeId,
-                'category'     => $skill['category'] ?? null,
-                'skill_name'   => $skill['skill_name'] ?? null,
-                'icon_path'    => $skill['icon_path'] ?? null,
-                'icon_viewbox' => $skill['icon_viewbox'] ?? null,
-                'icon_fill'    => $skill['icon_fill'] ?? null,
-                'status'       => $skill['status'] ?? 'active',
-
-                'created_by'   => $userId,
-                'updated_by'   => $userId,
-
-                'created_at'   => $now,
-                'updated_at'   => $now,
-            ];
-        }, $skills);
-
-        return $this->model->insert($data);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 🔥 SMART SYNC
-    |--------------------------------------------------------------------------
-    */
-    public function sync($existing, $incoming, $resumeId)
-    {
-        $userId = Auth::id();
-
-        $existingIds = collect($existing)->pluck('id')->toArray();
-        $incomingIds = collect($incoming)->pluck('id')->filter()->toArray();
-
-        /*
-        |--------------------------------------------------------------------------
-        | DELETE REMOVED
-        |--------------------------------------------------------------------------
-        */
-        $deleteIds = array_diff($existingIds, $incomingIds);
-
-        if (!empty($deleteIds)) {
-            $this->model->whereIn('id', $deleteIds)->delete();
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE / CREATE
-        |--------------------------------------------------------------------------
-        */
-        foreach ($incoming as $skill) {
-
-            $payload = [
-                'resume_id'    => $resumeId,
-                'category'     => $skill['category'],
-                'skill_name'   => $skill['skill_name'],
-                'icon_path'    => $skill['icon_path'],
-                'icon_viewbox' => $skill['icon_viewbox'] ?? null,
-                'icon_fill'    => $skill['icon_fill'] ?? null,
-                'updated_by'   => $userId,
-            ];
-
-            if (!empty($skill['id'])) {
-
-                // UPDATE
-                $this->model
-                    ->where('id', $skill['id'])
-                    ->update($payload);
-
-            } else {
-
-                // CREATE
-                $payload['created_by'] = $userId;
-
-                $this->model->create($payload);
-            }
-        }
 
         return true;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔥 BULK INSERT (SAFE + VALIDATION + LOGGING)
+    |--------------------------------------------------------------------------
+    */
+    public function bulkInsert(array $skills, $resumeId): bool
+    {
+        try {
+            if (empty($skills)) {
+                return false;
+            }
+
+            $now = now();
+            $userId = Auth::id();
+
+            $data = [];
+
+            foreach ($skills as $skill) {
+
+                // 🔥 skip empty rows
+                if (empty($skill['skill_name'])) {
+                    continue;
+                }
+
+                $data[] = [
+                    'resume_id'    => $resumeId,
+                    'category'     => $skill['category'] ?? null,
+                    'skill_name'   => $skill['skill_name'] ?? null,
+                    'icon_path'    => $skill['icon_path'] ?? null,
+                    'icon_viewbox' => $skill['icon_viewbox'] ?? null,
+                    'icon_fill'    => $skill['icon_fill'] ?? null,
+                    'status'       => $skill['status'] ?? TechnicalSkill::STATUS_ACTIVE,
+
+                    'created_by'   => $userId,
+                    'updated_by'   => $userId,
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
+                ];
+            }
+
+            if (empty($data)) {
+                return false;
+            }
+
+            return $this->model->insert($data);
+
+        } catch (\Throwable $e) {
+
+            Log::error('Technical Skill Bulk Insert Failed', [
+                'resume_id' => $resumeId,
+                'error'     => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔥 FINAL SYNC (SAFE + LOGGING)
+    |--------------------------------------------------------------------------
+    */
+    public function sync(Collection $existing, array $incoming, $resumeId): bool
+    {
+        try {
+            $userId = Auth::id();
+
+            $existingIds = $existing->pluck('id')->toArray();
+            $incomingIds = collect($incoming)->pluck('id')->filter()->toArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | DELETE REMOVED
+            |--------------------------------------------------------------------------
+            */
+            $deleteIds = array_diff($existingIds, $incomingIds);
+
+            if (!empty($deleteIds)) {
+                $this->model
+                    ->whereIn('id', $deleteIds)
+                    ->where('resume_id', $resumeId)
+                    ->delete();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | UPDATE / CREATE
+            |--------------------------------------------------------------------------
+            */
+            foreach ($incoming as $skill) {
+
+                if (empty($skill['skill_name'])) {
+                    continue;
+                }
+
+                $payload = [
+                    'resume_id'    => $resumeId,
+                    'category'     => $skill['category'] ?? null,
+                    'skill_name'   => $skill['skill_name'] ?? null,
+                    'icon_path'    => $skill['icon_path'] ?? null,
+                    'icon_viewbox' => $skill['icon_viewbox'] ?? null,
+                    'icon_fill'    => $skill['icon_fill'] ?? null,
+                    'updated_by'   => $userId,
+                ];
+
+                if (!empty($skill['id'])) {
+
+                    $this->model
+                        ->where('id', $skill['id'])
+                        ->where('resume_id', $resumeId)
+                        ->update($payload);
+
+                } else {
+
+                    $payload['created_by'] = $userId;
+
+                    $this->model->create($payload);
+                }
+            }
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Technical Skill Sync Failed', [
+                'resume_id' => $resumeId,
+                'error'     => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
@@ -196,11 +255,11 @@ class TechnicalSkillRepository
     | ACTIVE LIST
     |--------------------------------------------------------------------------
     */
-    public function active()
+    public function active($perPage = 10)
     {
         return $this->model
             ->active()
             ->latest('id')
-            ->get();
+            ->paginate($perPage);
     }
 }

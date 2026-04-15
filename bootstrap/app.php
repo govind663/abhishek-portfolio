@@ -4,6 +4,8 @@ use App\Http\Middleware\OptimizeImagesMiddleware;
 use App\Http\Middleware\PreventBackHistoryMiddleware;
 use App\Http\Middleware\PreventCitizenBackHistoryMiddleware;
 use App\Http\Middleware\RedirectIfAuthenticatedCustom;
+use App\Http\Middleware\ResumeStepLockMiddleware;
+
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -12,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -23,23 +26,42 @@ return Application::configure(basePath: dirname(__DIR__))
     )
 
     ->withMiddleware(function (Middleware $middleware): void {
+
         $middleware->web(append: [
+
+            // Laravel core
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
+            // Custom global middleware
             PreventBackHistoryMiddleware::class,
             PreventCitizenBackHistoryMiddleware::class,
             OptimizeImagesMiddleware::class,
             RedirectIfAuthenticatedCustom::class,
+
+            /**
+             * ⚠️ IMPORTANT FIX:
+             * ResumeStepLockMiddleware ko GLOBAL mat lagao
+             * warna every request pe run hoga (bug + blocking issue)
+             */
+        ]);
+
+        /**
+         * ✅ REGISTER AS ALIAS (CORRECT WAY)
+         * use only on resume routes
+         */
+        $middleware->alias([
+            'resume.lock' => ResumeStepLockMiddleware::class,
         ]);
     })
 
     ->withExceptions(function (Exceptions $exceptions): void {
 
         $exceptions->report(function (\Throwable $e) {
+
             if (
                 $e instanceof ValidationException ||
                 $e instanceof AuthenticationException ||
@@ -58,36 +80,30 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\Throwable $e, Request $request) {
 
-            // Validation errors -> Laravel default handling
             if ($e instanceof ValidationException) {
                 return null;
             }
 
-            // Unauthenticated user trying to access protected page -> redirect to login with message
             if ($e instanceof AuthenticationException) {
                 return redirect()
                     ->route('admin.login')
                     ->with('warning', 'Please login first to access this page.');
             }
 
-            // Route not found
             if ($e instanceof NotFoundHttpException) {
                 return response()->view('errors.404', [], 404);
             }
 
-            // Forbidden access
             if ($e instanceof AccessDeniedHttpException) {
                 return response()->view('errors.403', [], 403);
             }
 
-            // CSRF token mismatch / session expired -> redirect to login with message
             if ($e instanceof TokenMismatchException) {
                 return redirect()
                     ->route('admin.login')
-                    ->with('warning', 'Your session has expired. Please login again.');
+                    ->with('warning', 'Session expired. Please login again.');
             }
 
-            // API requests
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => false,
@@ -95,7 +111,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 500);
             }
 
-            // Web requests
             return response()->view('errors.500', [], 500);
         });
     })

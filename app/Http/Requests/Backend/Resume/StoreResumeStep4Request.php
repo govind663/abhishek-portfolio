@@ -13,39 +13,142 @@ class StoreResumeStep4Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (Normalize Input)
+    | PREPARE DATA (Normalize & Clean Input)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
+        $experiencesInput = $this->experiences ?? [];
+
+        if (!is_array($experiencesInput)) {
+            $experiencesInput = [];
+        }
+
+        $experiences = array_map(function ($exp) {
+
+            $detailsInput = $exp['details'] ?? [];
+
+            if (!is_array($detailsInput)) {
+                $detailsInput = [];
+            }
+
+            return [
+                'designation' => $this->clean($exp['designation'] ?? null),
+                'company'     => $this->clean($exp['company'] ?? null),
+                'location'    => $this->clean($exp['location'] ?? null),
+
+                'start_date'  => !empty($exp['start_date']) ? $exp['start_date'] : null,
+                'end_date'    => !empty($exp['end_date']) ? $exp['end_date'] : null,
+
+                'is_current'  => filter_var(
+                    $exp['is_current'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                ),
+
+                'details' => array_values(array_map(function ($detail) {
+                    return [
+                        'description' => $this->clean($detail['description'] ?? null),
+                    ];
+                }, $detailsInput))
+            ];
+        }, $experiencesInput);
+
         $this->merge([
-            'experiences' => array_values($this->experiences ?? [])
+            'experiences' => array_values($experiences)
         ]);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION RULES
+    |--------------------------------------------------------------------------
+    */
     public function rules(): array
     {
         return [
-            'experiences' => 'required|array|min:1',
+            'experiences' => ['required', 'array', 'min:1'],
 
-            'experiences.*.designation' => 'required|string|max:255',
-            'experiences.*.company'     => 'required|string|max:255',
-            'experiences.*.location'    => 'nullable|string|max:255',
+            'experiences.*.designation' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            'experiences.*.start_date'  => 'required|date',
-            'experiences.*.end_date'    => 'nullable|date|after_or_equal:experiences.*.start_date',
+            'experiences.*.company' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            'experiences.*.is_current'  => 'required|boolean',
+            'experiences.*.location' => [
+                'nullable',
+                'string',
+                'max:255'
+            ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | NESTED DETAILS
-            |--------------------------------------------------------------------------
-            */
-            'experiences.*.details' => 'required|array|min:1',
+            'experiences.*.start_date' => [
+                'required',
+                'date',
+                'before_or_equal:today'
+            ],
 
-            'experiences.*.details.*.description' => 'required|string|max:1000',
+            'experiences.*.end_date' => [
+                'nullable',
+                'date',
+            ],
+
+            'experiences.*.is_current' => [
+                'required',
+                'boolean'
+            ],
+
+            'experiences.*.details' => [
+                'required',
+                'array',
+                'min:1'
+            ],
+
+            'experiences.*.details.*.description' => [
+                'required',
+                'string',
+                'max:1000'
+            ],
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CUSTOM LOGIC VALIDATION
+    |--------------------------------------------------------------------------
+    */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+
+            foreach ($this->experiences ?? [] as $index => $exp) {
+
+                $start = $exp['start_date'] ?? null;
+                $end   = $exp['end_date'] ?? null;
+
+                // End date must be >= start date
+                if (!empty($start) && !empty($end)) {
+                    if (strtotime($end) < strtotime($start)) {
+                        $validator->errors()->add(
+                            "experiences.$index.end_date",
+                            __('End date must be after or equal to start date')
+                        );
+                    }
+                }
+
+                // If current job → end date must be empty
+                if (!empty($exp['is_current']) && !empty($end)) {
+                    $validator->errors()->add(
+                        "experiences.$index.end_date",
+                        __('End date must be empty for current job')
+                    );
+                }
+            }
+        });
     }
 
     /*
@@ -73,9 +176,9 @@ class StoreResumeStep4Request extends FormRequest
 
             'experiences.*.start_date.required' => __('Start date is required'),
             'experiences.*.start_date.date'     => __('Start date must be a valid date'),
+            'experiences.*.start_date.before_or_equal' => __('Start date cannot be in the future'),
 
             'experiences.*.end_date.date' => __('End date must be a valid date'),
-            'experiences.*.end_date.after_or_equal' => __('End date must be after or equal to start date'),
 
             'experiences.*.is_current.required' => __('Current job status is required'),
             'experiences.*.is_current.boolean'  => __('Current job must be true or false'),
@@ -88,5 +191,15 @@ class StoreResumeStep4Request extends FormRequest
             'experiences.*.details.*.description.string'   => __('Description must be a valid string'),
             'experiences.*.details.*.description.max'      => __('Description must not exceed 1000 characters'),
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER
+    |--------------------------------------------------------------------------
+    */
+    private function clean($value)
+    {
+        return $value ? trim(preg_replace('/\s+/', ' ', $value)) : null;
     }
 }

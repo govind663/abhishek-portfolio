@@ -176,6 +176,38 @@ Route::group([
 
     // ==== Resume Resource
     Route::resource('resume', ResumeController::class);
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔥 RESUME WIZARD (AJAX STEP ROUTES)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('resume')
+        ->middleware(['resume.lock'])
+        ->group(function () {
+
+            // 🔁 CREATE FLOW (CREATE WIZARD)
+            Route::post('/step1', [ResumeController::class, 'storeStep1'])->name('resume.step1');
+
+            Route::post('/step2/{id}', [ResumeController::class, 'storeStep2'])->name('resume.step2');
+
+            Route::post('/step3/{id}', [ResumeController::class, 'storeStep3'])->name('resume.step3');
+
+            Route::post('/step4/{id}', [ResumeController::class, 'storeStep4'])->name('resume.step4');
+
+            Route::post('/draft/{id}', [ResumeController::class, 'autoSave'])->name('resume.draft');
+
+            // 🔁 UPDATE FLOW (EDIT WIZARD)
+            Route::post('/update-step1/{id}', [ResumeController::class, 'updateStep1'])->name('resume.update.step1');
+
+            Route::post('/update-step2/{id}', [ResumeController::class, 'updateStep2'])->name('resume.update.step2');
+
+            Route::post('/update-step3/{id}', [ResumeController::class, 'updateStep3'])->name('resume.update.step3');
+
+            Route::post('/update-step4/{id}', [ResumeController::class, 'updateStep4'])->name('resume.update.step4');
+
+            Route::get('/{id}/download', [ResumeController::class, 'downloadPdf'])->name('resume.download');
+    });
     
     // ===== Brand Description Resource
     Route::resource('brand-description', BrandDescriptionController::class);

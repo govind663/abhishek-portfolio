@@ -16,12 +16,15 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL
+    | GET ALL (PAGINATED)
     |--------------------------------------------------------------------------
     */
-    public function all()
+    public function all($perPage = 10)
     {
-        return $this->model->latest('id')->get();
+        return $this->model
+            ->where('created_by', Auth::id()) // 🔐 user scope
+            ->latest('id')
+            ->paginate($perPage);
     }
 
     /*
@@ -29,23 +32,56 @@ class ResumeRepository
     | FIND
     |--------------------------------------------------------------------------
     */
-    public function find($id)
+    public function find($id): Resume
     {
-        return $this->model->findOrFail($id);
+        return $this->model
+            ->where('id', $id)
+            ->where('created_by', Auth::id()) // 🔐 secure
+            ->findOrFail($id);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FIND WITH RELATIONS
+    | 🔥 FIND WITH RELATIONS (SAFE)
     |--------------------------------------------------------------------------
     */
-    public function findWithRelations($id)
+    public function findWithRelations($id): Resume
     {
-        return $this->model->with([
-            'educations',
-            'skills',
-            'experiences.details'
-        ])->findOrFail($id);
+        return $this->model
+            ->with([
+                'educations',
+                'skills',
+                'experiences.details'
+            ])
+            ->where('created_by', Auth::id()) // 🔐 secure
+            ->findOrFail($id);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔥 FIND BY ID + USER (OPTIONAL SECURITY)
+    |--------------------------------------------------------------------------
+    */
+    public function findByUser($id, $userId): Resume
+    {
+        return $this->model
+            ->where('id', $id)
+            ->where('created_by', $userId)
+            ->firstOrFail();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET ACTIVE (PAGINATED)
+    |--------------------------------------------------------------------------
+    */
+    public function active($perPage = 10)
+    {
+        return $this->model
+            ->active()
+            ->where('created_by', Auth::id()) // 🔐 secure
+            ->latest('id')
+            ->paginate($perPage);
     }
 
     /*
@@ -53,9 +89,9 @@ class ResumeRepository
     | CREATE (WITH AUDIT)
     |--------------------------------------------------------------------------
     */
-    public function create(array $data)
+    public function create(array $data): Resume
     {
-        $data['created_by'] = Auth::id();
+        $data['created_by'] = $data['created_by'] ?? Auth::id();
         $data['updated_by'] = Auth::id();
 
         return $this->model->create($data);
@@ -63,16 +99,20 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE (WITH AUDIT)
+    | 🔥 UPDATE (FINAL SAFE VERSION)
     |--------------------------------------------------------------------------
     */
-    public function update(Resume $resume, array $data)
+    public function update($resume, array $data): Resume
     {
+        if (!$resume instanceof Resume) {
+            $resume = $this->find($resume); // 🔐 secure find
+        }
+
         $data['updated_by'] = Auth::id();
 
         $resume->update($data);
 
-        return $resume->refresh(); // 🔥 latest data return
+        return $resume->refresh();
     }
 
     /*
@@ -80,26 +120,24 @@ class ResumeRepository
     | DELETE SINGLE
     |--------------------------------------------------------------------------
     */
-    public function delete(Resume $resume)
+    public function delete(Resume $resume): bool
     {
         return $resume->delete();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE WITH RELATIONS (SAFE CASCADE)
+    | 🔥 DELETE WITH RELATIONS (SAFE CASCADE)
     |--------------------------------------------------------------------------
     */
-    public function deleteWithRelations(Resume $resume)
+    public function deleteWithRelations(Resume $resume): bool
     {
-        // eager load relations
         $resume->load([
             'educations',
             'skills',
             'experiences.details'
         ]);
 
-        // delete child relations
         $resume->educations()->delete();
         $resume->skills()->delete();
 

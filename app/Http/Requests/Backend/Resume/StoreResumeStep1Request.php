@@ -19,11 +19,13 @@ class StoreResumeStep1Request extends FormRequest
     protected function prepareForValidation()
     {
         $this->merge([
-            'name'     => trim($this->name),
-            'title'    => trim($this->title),
-            'email'    => strtolower(trim($this->email)),
-            'phone'    => trim($this->phone),
-            'location' => trim($this->location),
+            'name'     => $this->clean($this->name),
+            'title'    => $this->clean($this->title),
+            'email'    => strtolower(trim((string) $this->email)),
+            'phone'    => trim((string) $this->phone),
+            'location' => $this->clean($this->location),
+            'summary'  => trim((string) $this->summary),
+            'status'   => trim((string) $this->status),
         ]);
     }
 
@@ -35,20 +37,51 @@ class StoreResumeStep1Request extends FormRequest
     public function rules(): array
     {
         return [
-            'name'     => 'required|string|max:255',
-            'title'    => 'required|string|max:255',
-            'summary'  => 'required|string|min:10', // ✅ minimum length added
-
-            'email'    => 'required|email:rfc,dns|max:255', // ✅ stronger email validation
-
-            // ✅ improved phone validation
-            'phone'    => [
+            'name' => [
                 'required',
-                'max:20',
-                'regex:/^[0-9+\-\s()]+$/'
+                'string',
+                'max:255'
             ],
 
-            'location' => 'required|string|max:255',
+            'title' => [
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'summary' => [
+                'required',
+                'string',
+                'min:10',
+                'max:2000'
+            ],
+
+            'email' => [
+                'required',
+                'email:rfc,dns',
+                'max:255',
+                'unique:resumes,email'
+            ],
+
+            'phone' => [
+                'required',
+                'string',
+                'min:8',
+                'max:20',
+                'regex:/^[0-9+\-\s()]+$/',
+                'unique:resumes,phone'
+            ],
+
+            'location' => [
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'status' => [
+                'required',
+                'in:active,inactive'
+            ]
         ];
     }
 
@@ -60,29 +93,42 @@ class StoreResumeStep1Request extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required'     => __('Name is required'),
-            'name.string'       => __('Name must be a valid string'),
-            'name.max'          => __('Name must not exceed 255 characters'),
+            'name.required' => __('Name is required'),
+            'name.max'      => __('Name must not exceed 255 characters'),
 
-            'title.required'    => __('Title is required'),
-            'title.string'      => __('Title must be a valid string'),
-            'title.max'         => __('Title must not exceed 255 characters'),
+            'title.required' => __('Title is required'),
+            'title.max'      => __('Title must not exceed 255 characters'),
 
-            'summary.required'  => __('Summary is required'),
-            'summary.string'    => __('Summary must be a valid text'),
-            'summary.min'       => __('Summary must be at least 10 characters'),
+            'summary.required' => __('Summary is required'),
+            'summary.min'      => __('Summary must be at least 10 characters'),
+            'summary.max'      => __('Summary must not exceed 2000 characters'),
 
-            'email.required'    => __('Email is required'),
-            'email.email'       => __('Please enter a valid email address'),
-            'email.max'         => __('Email must not exceed 255 characters'),
+            'email.required' => __('Email Address is required'),
+            'email.email'    => __('Please enter a valid email address'),
+            'email.max'      => __('Email Address must not exceed 255 characters'),
+            'email.unique'   => __('This email address is already associated with another resume'),
 
-            'phone.required'    => __('Phone number is required'),
-            'phone.regex'       => __('Phone number format is invalid'),
-            'phone.max'         => __('Phone number must not exceed 20 characters'),
+            'phone.required' => __('Phone number is required'),
+            'phone.regex'    => __('Phone number format is invalid'),
+            'phone.min'      => __('Phone number must be at least 8 characters'),
+            'phone.max'      => __('Phone number must not exceed 20 characters'),
+            'phone.unique'   => __('This phone number is already associated with another resume'),
 
             'location.required' => __('Location is required'),
-            'location.string'   => __('Location must be a valid string'),
             'location.max'      => __('Location must not exceed 255 characters'),
+
+            'status.required' => __('Status is required'),
+            'status.in'       => __('Status must be either active or inactive'),
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER FUNCTION (Clean Input)
+    |--------------------------------------------------------------------------
+    */
+    private function clean($value)
+    {
+        return $value ? trim(preg_replace('/\s+/', ' ', (string) $value)) : null;
     }
 }

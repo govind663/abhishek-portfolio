@@ -4,24 +4,24 @@ namespace App\Repositories;
 
 use App\Models\ExperienceDetail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 
 class ExperienceDetailRepository
 {
-    protected ExperienceDetail $model;
-
-    public function __construct(ExperienceDetail $model)
-    {
-        $this->model = $model;
-    }
+    public function __construct(
+        protected ExperienceDetail $model
+    ) {}
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL
+    | GET ALL (PAGINATED)
     |--------------------------------------------------------------------------
     */
-    public function all()
+    public function all($perPage = 10)
     {
-        return $this->model->latest('id')->get();
+        return $this->model
+            ->latest('id')
+            ->paginate($perPage);
     }
 
     /*
@@ -29,7 +29,7 @@ class ExperienceDetailRepository
     | FIND
     |--------------------------------------------------------------------------
     */
-    public function find($id)
+    public function find($id): ExperienceDetail
     {
         return $this->model->findOrFail($id);
     }
@@ -39,7 +39,7 @@ class ExperienceDetailRepository
     | CREATE
     |--------------------------------------------------------------------------
     */
-    public function create(array $data)
+    public function create(array $data): ExperienceDetail
     {
         $data['created_by'] = Auth::id();
         $data['updated_by'] = Auth::id();
@@ -52,7 +52,7 @@ class ExperienceDetailRepository
     | UPDATE
     |--------------------------------------------------------------------------
     */
-    public function update($id, array $data)
+    public function update($id, array $data): ExperienceDetail
     {
         $detail = $this->find($id);
 
@@ -60,85 +60,139 @@ class ExperienceDetailRepository
 
         $detail->update($data);
 
-        return $detail;
+        return $detail->fresh();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE SINGLE
+    | DELETE
     |--------------------------------------------------------------------------
     */
-    public function delete($id)
+    public function delete($id): bool
     {
         return $this->find($id)->delete();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | GET BY EXPERIENCE
+    | 🔥 GET BY EXPERIENCE (NEVER NULL)
     |--------------------------------------------------------------------------
     */
-    public function getByExperience($experienceId)
+    public function getByExperience($experienceId): Collection
     {
         return $this->model
             ->where('experience_id', $experienceId)
             ->latest('id')
-            ->get();
+            ->get() ?? collect();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE BY EXPERIENCE (FIXED)
+    | DELETE BY EXPERIENCE
     |--------------------------------------------------------------------------
     */
-    public function deleteByExperience($experienceId)
+    public function deleteByExperience($experienceId): bool
     {
-        return $this->model
+        $this->model
             ->where('experience_id', $experienceId)
             ->delete();
+
+        return true;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | BULK INSERT (OPTIMIZED)
+    | 🔥 BULK INSERT (SMART FILTER + SAFE)
     |--------------------------------------------------------------------------
     */
-    public function bulkInsert(array $details, $experienceId)
+    public function bulkInsert(array $details, $experienceId): bool
     {
-        if (empty($details)) {
-            return false;
-        }
+        if (empty($details)) return false;
 
         $now = now();
         $userId = Auth::id();
 
-        $data = array_map(function ($detail) use ($experienceId, $now, $userId) {
-            return [
-                'experience_id' => $experienceId,
-                'description'   => $detail['description'] ?? null,
-                'status'        => $detail['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+        $data = [];
 
+        foreach ($details as $detail) {
+
+            // 🔥 skip empty rows
+            if (empty($detail['description'])) continue;
+
+            $data[] = [
+                'experience_id' => $experienceId,
+                'description'   => $detail['description'],
+                'status'        => $detail['status'] ?? ExperienceDetail::STATUS_ACTIVE,
                 'created_by'    => $userId,
                 'updated_by'    => $userId,
-
                 'created_at'    => $now,
                 'updated_at'    => $now,
             ];
-        }, $details);
+        }
+
+        if (empty($data)) return false;
 
         return $this->model->insert($data);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | ACTIVE LIST
+    | 🔥 FINAL SYNC (ULTRA SAFE VERSION)
     |--------------------------------------------------------------------------
     */
-    public function active()
+    public function sync(Collection $existing, array $newData, $experienceId): bool
     {
-        return $this->model
-            ->active()
-            ->latest('id')
-            ->get();
+        $userId = Auth::id();
+
+        $existingIds = $existing->pluck('id')->toArray();
+        $newIds = collect($newData)->pluck('id')->filter()->toArray();
+
+        /*
+        |--------------------------------------------------------------------------
+        | DELETE REMOVED
+        |--------------------------------------------------------------------------
+        */
+        $deleteIds = array_diff($existingIds, $newIds);
+
+        if (!empty($deleteIds)) {
+            $this->model
+                ->whereIn('id', $deleteIds)
+                ->where('experience_id', $experienceId) // 🔐 SECURITY
+                ->delete();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE + CREATE
+        |--------------------------------------------------------------------------
+        */
+        foreach ($newData as $item) {
+
+            if (empty($item['description'])) continue;
+
+            if (!empty($item['id'])) {
+
+                $this->model
+                    ->where('id', $item['id'])
+                    ->where('experience_id', $experienceId) // 🔐 SECURITY
+                    ->update([
+                        'description' => $item['description'],
+                        'status'      => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+                        'updated_by'  => $userId,
+                    ]);
+
+            } else {
+
+                $this->model->create([
+                    'experience_id' => $experienceId,
+                    'description'   => $item['description'],
+                    'status'        => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+                    'created_by'    => $userId,
+                    'updated_by'    => $userId,
+                ]);
+            }
+        }
+
+        return true;
     }
 }

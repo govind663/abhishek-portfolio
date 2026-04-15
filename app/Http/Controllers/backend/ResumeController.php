@@ -16,9 +16,14 @@ use App\Http\Requests\Backend\Resume\UpdateResumeStep4Request;
 
 use App\Models\Resume;
 use App\Services\ResumeService;
+
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Auth;
+
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ResumeController extends Controller
 {
@@ -33,11 +38,11 @@ class ResumeController extends Controller
     */
     public function index()
     {
-        $resumes = Resume::active()->latestId()->get();
+        $resumes = Resume::where('created_by', Auth::id())
+            ->latest('id')
+            ->paginate(10);
 
-        return view('backend.resume.index', [
-            'resumes' => $resumes
-        ]);
+        return view('backend.resume.index', compact('resumes'));
     }
 
     /*
@@ -52,10 +57,28 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | COMMON JSON RESPONSE HANDLER
+    | EDIT
     |--------------------------------------------------------------------------
     */
-    private function success($message, $data = []): JsonResponse
+    public function edit($id)
+    {
+        $resume = Resume::with([
+            'educations',
+            'skills',
+            'experiences.details'
+        ])
+        ->where('created_by', Auth::id())
+        ->findOrFail($id);
+
+        return view('backend.resume.edit', compact('resume'));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSE HELPERS
+    |--------------------------------------------------------------------------
+    */
+    private function success(string $message, array $data = []): JsonResponse
     {
         return response()->json(array_merge([
             'status'  => true,
@@ -63,9 +86,13 @@ class ResumeController extends Controller
         ], $data));
     }
 
-    private function error($message, $e = null): JsonResponse
+    private function error(string $message, \Throwable $e = null): JsonResponse
     {
-        Log::error($message, ['error' => $e?->getMessage()]);
+        Log::error($message, [
+            'message' => $e?->getMessage(),
+            'file'    => $e?->getFile(),
+            'line'    => $e?->getLine(),
+        ]);
 
         return response()->json([
             'status'  => false,
@@ -75,15 +102,53 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE STEP 1
+    | 🔐 GET RESUME WITH OWNERSHIP CHECK
+    |--------------------------------------------------------------------------
+    */
+    private function getResumeOrFail(int $resumeId): Resume
+    {
+        return Resume::where('id', $resumeId)
+            ->where('created_by', Auth::id())
+            ->firstOrFail();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | STEP LOCK SYSTEM (DB BASED)
+    |--------------------------------------------------------------------------
+    */
+    private function ensureStepAllowed(int $resumeId, int $step): void
+    {
+        $resume = $this->getResumeOrFail($resumeId);
+
+        // 🔥 DB based step control
+        if ($step > ($resume->current_step + 1)) {
+            throw new HttpResponseException(
+                response()->json([
+                    'status'  => false,
+                    'message' => "Step {$step} is locked. Complete Step {$resume->current_step} first"
+                ], 422)
+            );
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | STEP 1
     |--------------------------------------------------------------------------
     */
     public function storeStep1(StoreResumeStep1Request $request): JsonResponse
     {
         try {
-            $resume = $this->resumeService->storeStep1($request->validated());
+            $data = $request->validated();
 
-            Cache::forget('resume');
+            $data['created_by'] = Auth::id();
+
+            // 🔥 INIT STEP TRACKING
+            $data['current_step'] = 1;
+            $data['is_completed'] = 0;
+
+            $resume = $this->resumeService->storeStep1($data);
 
             return $this->success('Step 1 saved successfully', [
                 'resume_id' => $resume->id
@@ -96,15 +161,18 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE STEP 2
+    | STEP 2
     |--------------------------------------------------------------------------
     */
-    public function storeStep2(StoreResumeStep2Request $request, $id): JsonResponse
+    public function storeStep2(StoreResumeStep2Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 2);
+
         try {
             $this->resumeService->storeStep2($id, $request->validated());
 
-            Cache::forget('resume');
+            // ✅ UPDATE STEP
+            Resume::where('id', $id)->update(['current_step' => 2]);
 
             return $this->success('Step 2 saved successfully');
 
@@ -115,15 +183,17 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE STEP 3
+    | STEP 3
     |--------------------------------------------------------------------------
     */
-    public function storeStep3(StoreResumeStep3Request $request, $id): JsonResponse
+    public function storeStep3(StoreResumeStep3Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 3);
+
         try {
             $this->resumeService->storeStep3($id, $request->validated());
 
-            Cache::forget('resume');
+            Resume::where('id', $id)->update(['current_step' => 3]);
 
             return $this->success('Step 3 saved successfully');
 
@@ -134,39 +204,31 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE STEP 4
+    | STEP 4
     |--------------------------------------------------------------------------
     */
-    public function storeStep4(StoreResumeStep4Request $request, $id): JsonResponse
+    public function storeStep4(StoreResumeStep4Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 4);
+
         try {
             $this->resumeService->storeStep4($id, $request->validated());
 
-            Cache::forget('resume');
+            // ✅ FINAL COMPLETE
+            Resume::where('id', $id)->update([
+                'current_step' => 4,
+                'is_completed' => 1
+            ]);
 
-            return $this->success('Resume completed successfully');
+            Cache::forget('resume_list');
+
+            return $this->success('Resume created successfully', [
+                'redirect' => route('resume.index')
+            ]);
 
         } catch (\Throwable $e) {
-            return $this->error('Step 4 failed', $e);
+            return $this->error('Final submission failed', $e);
         }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | EDIT
-    |--------------------------------------------------------------------------
-    */
-    public function edit($id)
-    {
-        $resume = Resume::with([
-            'educations',
-            'skills',
-            'experiences.details'
-        ])->findOrFail($id);
-
-        return view('backend.resume.edit', [
-            'resume' => $resume
-        ]);
     }
 
     /*
@@ -174,19 +236,17 @@ class ResumeController extends Controller
     | UPDATE STEP 1
     |--------------------------------------------------------------------------
     */
-    public function updateStep1(UpdateResumeStep1Request $request, $id): JsonResponse
+    public function updateStep1(UpdateResumeStep1Request $request, int $id): JsonResponse
     {
+        $this->getResumeOrFail($id);
+
         try {
-            $resume = Resume::findOrFail($id);
-
-            $this->resumeService->updateStep1($resume, $request->validated());
-
-            Cache::forget('resume');
+            $this->resumeService->updateStep1($id, $request->validated());
 
             return $this->success('Step 1 updated successfully');
 
         } catch (\Throwable $e) {
-            return $this->error('Step 1 update failed', $e);
+            return $this->error('Update Step 1 failed', $e);
         }
     }
 
@@ -195,17 +255,17 @@ class ResumeController extends Controller
     | UPDATE STEP 2
     |--------------------------------------------------------------------------
     */
-    public function updateStep2(UpdateResumeStep2Request $request, $id): JsonResponse
+    public function updateStep2(UpdateResumeStep2Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 2);
+
         try {
             $this->resumeService->updateStep2($id, $request->validated());
-
-            Cache::forget('resume');
 
             return $this->success('Step 2 updated successfully');
 
         } catch (\Throwable $e) {
-            return $this->error('Step 2 update failed', $e);
+            return $this->error('Update Step 2 failed', $e);
         }
     }
 
@@ -214,17 +274,17 @@ class ResumeController extends Controller
     | UPDATE STEP 3
     |--------------------------------------------------------------------------
     */
-    public function updateStep3(UpdateResumeStep3Request $request, $id): JsonResponse
+    public function updateStep3(UpdateResumeStep3Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 3);
+
         try {
             $this->resumeService->updateStep3($id, $request->validated());
-
-            Cache::forget('resume');
 
             return $this->success('Step 3 updated successfully');
 
         } catch (\Throwable $e) {
-            return $this->error('Step 3 update failed', $e);
+            return $this->error('Update Step 3 failed', $e);
         }
     }
 
@@ -233,17 +293,25 @@ class ResumeController extends Controller
     | UPDATE STEP 4
     |--------------------------------------------------------------------------
     */
-    public function updateStep4(UpdateResumeStep4Request $request, $id): JsonResponse
+    public function updateStep4(UpdateResumeStep4Request $request, int $id): JsonResponse
     {
+        $this->ensureStepAllowed($id, 4);
+
         try {
             $this->resumeService->updateStep4($id, $request->validated());
 
-            Cache::forget('resume');
+            Resume::where('id', $id)->update([
+                'is_completed' => 1
+            ]);
 
-            return $this->success('Resume updated successfully');
+            Cache::forget('resume_list');
+
+            return $this->success('Resume updated successfully', [
+                'redirect' => route('resume.index')
+            ]);
 
         } catch (\Throwable $e) {
-            return $this->error('Step 4 update failed', $e);
+            return $this->error('Update failed', $e);
         }
     }
 
@@ -252,23 +320,77 @@ class ResumeController extends Controller
     | DELETE
     |--------------------------------------------------------------------------
     */
-    public function destroy($id)
+    public function destroy(int $id)
     {
         try {
-            $resume = Resume::findOrFail($id);
+            $resume = $this->getResumeOrFail($id);
 
             $this->resumeService->delete($resume);
 
-            Cache::forget('resume');
+            Cache::forget('resume_list');
 
             return redirect()
                 ->route('resume.index')
                 ->with('message', 'Resume deleted successfully');
 
         } catch (\Throwable $e) {
-            Log::error('Resume delete failed', ['error' => $e->getMessage()]);
+            Log::error('Resume delete failed', [
+                'message' => $e?->getMessage(),
+                'file'    => $e?->getFile(),
+                'line'    => $e?->getLine(),
+            ]);
 
             return back()->with('error', 'Delete failed!');
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📄 DOWNLOAD / PREVIEW RESUME PDF (UPGRADED)
+    |--------------------------------------------------------------------------
+    */
+    public function downloadPdf($id)
+    {
+        try {
+
+            // 🔐 Secure + full eager loading
+            $resume = Resume::with([
+                'educations',
+                'skills',
+                'experiences.details'
+            ])
+            ->where('created_by', Auth::id())
+            ->findOrFail($id);
+
+            // 🔥 Clean filename (safe)
+            $fileName = preg_replace('/[^A-Za-z0-9\-]/', '_', $resume->name) . '_resume.pdf';
+
+            // 🔥 Generate PDF
+            $pdf = Pdf::loadView('backend.resume.pdf', compact('resume'))
+                ->setPaper('A4', 'portrait')
+                ->setOptions([
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled' => true,
+                    'defaultFont' => 'DejaVu Sans'
+                ]);
+
+            // 🔥 OPTIONAL: preview OR download
+            if (request()->has('preview')) {
+                return $pdf->stream($fileName); // 👀 open in browser
+            }
+
+            return $pdf->download($fileName); // ⬇️ download
+
+        } catch (\Throwable $e) {
+
+            Log::error('Resume PDF Download Failed', [
+                'resume_id' => $id,
+                'user_id'   => Auth::id(),
+                'error'     => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'PDF download failed!');
         }
     }
 }

@@ -44,6 +44,7 @@ Manage Resumes
                             <th>Phone</th>
                             <th>Location</th>
                             <th>Status</th>
+                            <th class="no-export">Action</th>
                             <th class="no-export">Edit</th>
                             <th class="no-export">Delete</th>
                         </tr>
@@ -58,13 +59,57 @@ Manage Resumes
                                 <td>{{ $resume->email ?? '-' }}</td>
                                 <td>{{ $resume->phone ?? '-' }}</td>
                                 <td>{{ $resume->location ?? '-' }}</td>
+                                {{-- Status --}}
                                 <td>
-                                    <span class="badge badge-{{ $resume->status == 'active' ? 'success' : 'warning' }}">
-                                        {{ ucfirst($resume->status) }}
-                                    </span>
+                                    @if($resume->status == 'active')
+                                        <span class="badge badge-success">Active</span>
+                                    @else
+                                        <span class="badge badge-warning">Inactive</span>
+                                    @endif
                                 </td>
-                                <td class="no-export">Edit</td>
-                                <td class="no-export">Delete</td>
+
+                                <!-- Download / Preview -->
+                                <td class="no-export">
+                                    <div class="btn-group" role="group">
+
+                                        {{-- Preview --}}
+                                        <a href="{{ route('resume.pdf', $resume->id) }}?preview=1" target="_blank">
+                                            <button class="btn btn-info btn-sm">
+                                                Preview
+                                            </button>
+                                        </a>
+
+                                        {{-- Download --}}
+                                        <a href="{{ route('resume.pdf', $resume->id) }}">
+                                            <button class="btn btn-success btn-sm">
+                                                Download
+                                            </button>
+                                        </a>
+
+                                    </div>
+                                </td>
+
+                                <!-- EDIT -->
+                                <td class="no-export">
+                                    <a href="{{ route('resume.edit', $resume->id) }}">
+                                        <button class="btn btn-warning btn-sm">
+                                            <i class="micon dw dw-pencil-1"></i> Edit
+                                        </button>
+                                    </a>
+                                </td>
+
+                                <!-- DELETE -->
+                                <td class="no-export">
+                                    <form action="{{ route('resume.destroy', $resume->id) }}" method="POST">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                                class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Are you sure to delete?')">
+                                            <i class="micon dw dw-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

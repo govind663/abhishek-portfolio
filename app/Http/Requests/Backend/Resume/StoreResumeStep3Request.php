@@ -13,30 +13,84 @@ class StoreResumeStep3Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (Normalize Input)
+    | PREPARE DATA (Normalize & Clean Input)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
-        $this->merge([
-            'skills' => array_values($this->skills ?? [])
-        ]);
+        if (!empty($this->skills) && is_array($this->skills)) {
+
+            $skills = array_map(function ($skill) {
+                return [
+                    'skill_name'   => isset($skill['skill_name'])
+                        ? trim((string) $skill['skill_name'])
+                        : null,
+
+                    'category'     => isset($skill['category'])
+                        ? trim((string) $skill['category'])
+                        : null,
+
+                    'icon_path'    => isset($skill['icon_path'])
+                        ? trim((string) $skill['icon_path'])
+                        : null,
+
+                    'icon_viewbox' => isset($skill['icon_viewbox'])
+                        ? trim((string) $skill['icon_viewbox'])
+                        : null,
+
+                    'icon_fill'    => isset($skill['icon_fill'])
+                        ? trim((string) $skill['icon_fill'])
+                        : null,
+                ];
+            }, $this->skills);
+
+            $this->merge([
+                'skills' => array_values($skills)
+            ]);
+        }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION RULES
+    |--------------------------------------------------------------------------
+    */
     public function rules(): array
     {
         return [
-            'skills' => 'required|array|min:1',
+            'skills' => ['required', 'array', 'min:1'],
 
-            'skills.*.skill_name' => 'required|string|max:255',
-            'skills.*.category'   => 'required|string|max:255',
+            'skills.*.skill_name' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            // SVG Path validation (basic safe string)
-            'skills.*.icon_path' => 'required|string|max:1000',
+            'skills.*.category' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            // optional SVG configs
-            'skills.*.icon_viewbox' => 'nullable|string|max:100',
-            'skills.*.icon_fill'    => 'nullable|string|max:50',
+            // 🔐 Safe SVG path validation
+            'skills.*.icon_path' => [
+                'required',
+                'string',
+                'max:1000',
+                'regex:/^[MmLlHhVvCcSsQqTtAaZz0-9,.\-\s]+$/'
+            ],
+
+            'skills.*.icon_viewbox' => [
+                'nullable',
+                'string',
+                'max:100'
+            ],
+
+            'skills.*.icon_fill' => [
+                'nullable',
+                'string',
+                'max:50'
+            ],
         ];
     }
 
@@ -63,6 +117,7 @@ class StoreResumeStep3Request extends FormRequest
             'skills.*.icon_path.required' => __('Skill icon path is required'),
             'skills.*.icon_path.string'   => __('Skill icon path must be a valid string'),
             'skills.*.icon_path.max'      => __('Skill icon path must not exceed 1000 characters'),
+            'skills.*.icon_path.regex'    => __('Invalid SVG path format'),
 
             'skills.*.icon_viewbox.string' => __('Icon viewbox must be a valid string'),
             'skills.*.icon_viewbox.max'    => __('Icon viewbox must not exceed 100 characters'),

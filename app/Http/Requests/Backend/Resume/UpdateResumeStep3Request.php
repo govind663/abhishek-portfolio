@@ -13,32 +13,81 @@ class UpdateResumeStep3Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (Normalize Input)
+    | PREPARE DATA (Normalize & Clean Input)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
+        $skillsInput = $this->skills ?? [];
+
+        if (!is_array($skillsInput)) {
+            $skillsInput = [];
+        }
+
+        $skills = array_map(function ($skill) {
+            return [
+                'id'           => $skill['id'] ?? null,
+                'skill_name'   => $this->clean($skill['skill_name'] ?? null),
+                'category'     => $this->clean($skill['category'] ?? null),
+                'icon_path'    => $this->clean($skill['icon_path'] ?? null),
+                'icon_viewbox' => $this->clean($skill['icon_viewbox'] ?? null),
+                'icon_fill'    => $this->clean($skill['icon_fill'] ?? null),
+            ];
+        }, $skillsInput);
+
         $this->merge([
-            'skills' => array_values($this->skills ?? [])
+            'skills' => array_values($skills)
         ]);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION RULES
+    |--------------------------------------------------------------------------
+    */
     public function rules(): array
     {
         return [
-            'skills' => 'required|array|min:1',
+            'skills' => ['required', 'array', 'min:1'],
 
-            // secure ID validation 🔥
-            'skills.*.id' => 'nullable|integer|exists:technical_skills,id',
+            // secure ID validation
+            'skills.*.id' => [
+                'nullable',
+                'integer',
+                'exists:technical_skills,id'
+            ],
 
-            'skills.*.skill_name' => 'required|string|max:255',
-            'skills.*.category'   => 'required|string|max:255',
+            'skills.*.skill_name' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            // SVG path (length increased)
-            'skills.*.icon_path' => 'required|string|max:1000',
+            'skills.*.category' => [
+                'required',
+                'string',
+                'max:255'
+            ],
 
-            'skills.*.icon_viewbox' => 'nullable|string|max:100',
-            'skills.*.icon_fill'    => 'nullable|string|max:50',
+            // SVG path safety validation
+            'skills.*.icon_path' => [
+                'required',
+                'string',
+                'max:1000',
+                'regex:/^[MmLlHhVvCcSsQqTtAaZz0-9,\.\-\s]+$/'
+            ],
+
+            'skills.*.icon_viewbox' => [
+                'nullable',
+                'string',
+                'max:100'
+            ],
+
+            'skills.*.icon_fill' => [
+                'nullable',
+                'string',
+                'max:50'
+            ],
         ];
     }
 
@@ -68,6 +117,7 @@ class UpdateResumeStep3Request extends FormRequest
             'skills.*.icon_path.required' => __('Icon path is required'),
             'skills.*.icon_path.string'   => __('Icon path must be a valid string'),
             'skills.*.icon_path.max'      => __('Icon path must not exceed 1000 characters'),
+            'skills.*.icon_path.regex'    => __('Invalid SVG path format'),
 
             'skills.*.icon_viewbox.string' => __('Icon viewbox must be a valid string'),
             'skills.*.icon_viewbox.max'    => __('Icon viewbox must not exceed 100 characters'),
@@ -75,5 +125,15 @@ class UpdateResumeStep3Request extends FormRequest
             'skills.*.icon_fill.string' => __('Icon fill must be a valid string'),
             'skills.*.icon_fill.max'    => __('Icon fill must not exceed 50 characters'),
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER FUNCTION
+    |--------------------------------------------------------------------------
+    */
+    private function clean($value)
+    {
+        return $value ? trim(preg_replace('/\s+/', ' ', $value)) : null;
     }
 }
