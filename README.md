@@ -101,11 +101,11 @@ This portfolio highlights:
 📧 Email: **codingthunder1997@gmail.com**  
 📱 Phone: **+91 9004763926**  
 🐙 GitHub: *https://github.com/your-username*  
-🔗 LinkedIn: *https://www.linkedin.com/in/abhishek-laravel-developer/*
+🔗 LinkedIn: *https://www.linkedin.com/in/abhishek-laravel-developer/*  
 🌐 Portfolio: *Coming Soon*
 
 ---
 
-## ⭐ Support  
+# ⭐ Support    
 If you like my work, feel free to **star this repository**!
 
