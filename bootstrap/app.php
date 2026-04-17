@@ -29,30 +29,45 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
 
-            // Laravel core
+            /*
+            |--------------------------------------------------------------------------
+            | 🔥 Laravel Core
+            |--------------------------------------------------------------------------
+            */
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
-            // Custom global middleware
+            /*
+            |--------------------------------------------------------------------------
+            | 🖼️ PERFORMANCE (FIRST)
+            |--------------------------------------------------------------------------
+            */
+            OptimizeImagesMiddleware::class,
+
+            /*
+            |--------------------------------------------------------------------------
+            | ⚡ CACHE CONTROL
+            |--------------------------------------------------------------------------
+            */
             PreventBackHistoryMiddleware::class,
             PreventCitizenBackHistoryMiddleware::class,
-            OptimizeImagesMiddleware::class,
-            RedirectIfAuthenticatedCustom::class,
 
-            /**
-             * ⚠️ IMPORTANT FIX:
-             * ResumeStepLockMiddleware ko GLOBAL mat lagao
-             * warna every request pe run hoga (bug + blocking issue)
-             */
+            /*
+            |--------------------------------------------------------------------------
+            | 🔐 AUTH LOGIC
+            |--------------------------------------------------------------------------
+            */
+            RedirectIfAuthenticatedCustom::class,
         ]);
 
-        /**
-         * ✅ REGISTER AS ALIAS (CORRECT WAY)
-         * use only on resume routes
-         */
+        /*
+        |--------------------------------------------------------------------------
+        | ✅ ALIAS (NO CHANGE)
+        |--------------------------------------------------------------------------
+        */
         $middleware->alias([
             'resume.lock' => ResumeStepLockMiddleware::class,
         ]);

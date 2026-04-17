@@ -12,107 +12,135 @@ class PreventCitizenBackHistoryMiddleware
     {
         $response = $next($request);
 
+        $clean = fn($value) => str_replace(["\r", "\n"], '', trim($value));
+
         /*
         |--------------------------------------------------------------------------
-        | 1. Security Headers
+        | 🔒 SECURITY HEADERS (BALANCED)
         |--------------------------------------------------------------------------
         */
-        // ✅ iframe allow (Google Maps ke liye)
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        $headers = [
 
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('X-XSS-Protection', '1; mode=block');
-        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+            // Clickjacking protection
+            'X-Frame-Options' => 'SAMEORIGIN',
 
-        // ✅ geolocation allow
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=*');
+            // MIME sniffing protection
+            'X-Content-Type-Options' => 'nosniff',
 
-        if ($request->isSecure()) {
-            $response->headers->set(
-                'Strict-Transport-Security',
-                'max-age=31536000; includeSubDomains; preload'
-            );
-        }
+            // XSS protection
+            'X-XSS-Protection' => '1; mode=block',
+
+            // Referrer policy
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+
+            // Permissions
+            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(self)',
+
+            // HTTPS only
+            'Strict-Transport-Security' => $request->isSecure()
+                ? 'max-age=31536000; includeSubDomains; preload'
+                : '',
+        ];
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Content Security Policy (FINAL FIX)
+        | 🌐 CONTENT SECURITY POLICY (STABLE VERSION)
         |--------------------------------------------------------------------------
         */
-        $csp = implode(' ', [
-            "default-src 'self';",
-            "base-uri 'self';",
-            "form-action 'self';",
-            "frame-ancestors 'self';",
-            "object-src 'none';",
+        $csp = "
+            default-src 'self';
 
-            // Images
-            "img-src 'self' data: https://*.google.com https://*.gstatic.com https:;",
+            base-uri 'self';
+            form-action 'self';
+            frame-ancestors 'self';
+            object-src 'none';
 
-            // CSS
-            "style-src 'self' 'unsafe-inline' https://*.googleapis.com https:;",
+            img-src 'self' data: https:;
 
-            // JS
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google.com https://*.gstatic.com https:;",
+            font-src 'self' https://fonts.gstatic.com;
 
-            // Fonts
-            "font-src 'self' data: https://*.gstatic.com https:;",
+            connect-src 'self' https:;
 
-            // API connections
-            "connect-src 'self' https://*.googleapis.com https://*.google.com https:;",
+            script-src 'self'
+                'unsafe-inline'
+                https://cdnjs.cloudflare.com
+                https://ajax.googleapis.com
+                https://www.gstatic.com;
 
-            // 🔥 MOST IMPORTANT (Google Maps iframe allow)
-            "frame-src 'self' https://*.google.com https://*.google.co.in https://maps.google.com https://maps.googleapis.com https://maps.gstatic.com;",
+            style-src 'self'
+                'unsafe-inline'
+                https://fonts.googleapis.com
+                https://cdnjs.cloudflare.com;
 
-            "media-src 'self' https:;",
-            "upgrade-insecure-requests;"
-        ]);
+            frame-src https://www.google.com https://maps.google.com;
 
-        $response->headers->set('Content-Security-Policy', $csp);
+            upgrade-insecure-requests;
+        ";
+
+        $headers['Content-Security-Policy'] = preg_replace('/\s+/', ' ', trim($csp));
 
         /*
         |--------------------------------------------------------------------------
-        | 3. Cache Control
+        | ⚡ SMART CACHE (MOST IMPORTANT FOR PERFORMANCE)
         |--------------------------------------------------------------------------
         */
         if (
             $request->is('admin/*') ||
-            $request->is('citizen/*') ||
             $request->is('login') ||
             $request->is('register') ||
             $request->is('dashboard') ||
             $request->is('profile')
         ) {
-            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-            $response->headers->set('Pragma', 'no-cache');
-            $response->headers->set('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+            // 🔴 Sensitive pages
+            $headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0';
+            $headers['Pragma'] = 'no-cache';
+            $headers['Expires'] = '0';
+
+        } elseif (
+            $request->is('backend/assets/*') ||
+            $request->is('build/*')
+        ) {
+            // 🟢 Static assets (VERY FAST)
+            $headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+
         } else {
-            $response->headers->set('Cache-Control', 'public, max-age=300, must-revalidate');
+            // 🟡 Public pages (BALANCED)
+            $headers['Cache-Control'] = 'public, max-age=86400';
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 4. SEO Headers
+        | 🤖 SEO CONTROL
         |--------------------------------------------------------------------------
         */
         if (
             $request->is('admin/*') ||
-            $request->is('citizen/*') ||
             $request->is('login') ||
             $request->is('register') ||
             $request->is('dashboard')
         ) {
-            $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+            $headers['X-Robots-Tag'] = 'noindex, nofollow';
         } else {
-            $response->headers->set('X-Robots-Tag', 'index, follow');
+            $headers['X-Robots-Tag'] = 'index, follow';
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 5. Performance
+        | 🚀 PERFORMANCE BOOST
         |--------------------------------------------------------------------------
         */
-        $response->headers->set('X-DNS-Prefetch-Control', 'on');
+        $headers['X-DNS-Prefetch-Control'] = 'on';
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔐 APPLY HEADERS
+        |--------------------------------------------------------------------------
+        */
+        foreach ($headers as $key => $value) {
+            if (!empty($value)) {
+                $response->headers->set($key, $clean($value));
+            }
+        }
 
         return $response;
     }

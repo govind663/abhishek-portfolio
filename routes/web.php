@@ -108,7 +108,10 @@ Route::group([
 */
 Route::group([
     'prefix' => 'admin',
-    'middleware' => [RedirectIfAuthenticatedCustom::class, OptimizeImagesMiddleware::class]
+    'middleware' => [
+        RedirectIfAuthenticatedCustom::class, 
+        OptimizeImagesMiddleware::class
+    ]
 ], function () {
 
     // ===== Register
@@ -136,7 +139,10 @@ Route::group([
 */
 Route::group([
     'prefix' => 'admin',
-    'middleware' => ['auth:web', PreventBackHistoryMiddleware::class, OptimizeImagesMiddleware::class]
+    'middleware' => [
+        'auth:web', 
+        PreventBackHistoryMiddleware::class, 
+        OptimizeImagesMiddleware::class]
 ], function () {
 
     // ===== Dashboard

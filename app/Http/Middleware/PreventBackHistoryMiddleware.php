@@ -49,6 +49,19 @@ class PreventBackHistoryMiddleware
             'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains; preload',
         ];
 
+        /*
+        |--------------------------------------------------------------------------
+        | ⚡ FIX ADDITION (SAFE MERGE - NO CHANGE IN YOUR CODE)
+        |--------------------------------------------------------------------------
+        */
+        if (!empty($headers['Content-Security-Policy'])) {
+            $headers['Content-Security-Policy'] = preg_replace(
+                '/\s+/',
+                ' ',
+                trim($headers['Content-Security-Policy'])
+            );
+        }
+
         // ✅ Cache Strategy
         if ($request->is('backend/assets/*') || $request->is('build/*')) {
             // Static assets → cacheable
