@@ -48,7 +48,7 @@ Full Stack Developer Portfolio, Abhishek Profile, Developer Story, Career Journe
             </div>
         </div>
 
-        <nav class="breadcrumbs">
+        <nav class="breadcrumbs" aria-label="breadcrumb">
             <div class="container">
                 <ol>
                     <li><a href="{{ route('frontend.home') }}" title="Home Page">Home</a></li>
@@ -67,12 +67,15 @@ Full Stack Developer Portfolio, Abhishek Profile, Developer Story, Career Journe
             <div class="row gy-4 justify-content-center">
 
                 <div class="col-lg-4">
-                    <img src="{{ $about->profile_image ? asset($about->profile_image) : asset('frontend/assets/img/Abhishek_profile_pic.webp') }}"
-                        class="img-fluid rounded"
-                        alt="{{ $about->name ?? 'Profile' }}"
-                        data-aos="fade-up"
-                        data-aos-delay="200"
-                        title="{{ $about->subtitle ?? '' }}">
+                    <img 
+                    src="{{ $about->profile_image ? asset($about->profile_image) : asset('frontend/assets/img/Abhishek_profile_pic.webp') }}"
+                    class="img-fluid rounded"
+                    alt="{{ $about->name ?? 'Profile' }}"
+                    title="{{ $about->subtitle ?? '' }}"
+                    width="400"
+                    height="400"
+                    loading="eager"
+                    decoding="async">
                 </div>
 
                 <div class="col-lg-8 content">

@@ -6,18 +6,12 @@ use Illuminate\Support\Facades\Storage;
 
 class FileUploadService
 {
-    /*
-    |--------------------------------------------------------------------------
-    | UNIVERSAL FILE UPLOAD (Optimized)
-    |--------------------------------------------------------------------------
-    */
     public function upload($file, ?string $folder = null, $model = null): ?string
     {
         if (!$file || !$file->isValid()) {
             return null;
         }
 
-        // ✅ Auto folder from model
         if (!$folder && $model) {
             $folder = $this->generateFolderFromModel($model);
         }
@@ -29,7 +23,7 @@ class FileUploadService
 
         /*
         |--------------------------------------------------------------------------
-        | 🎬 VIDEO (MP4 OPTIMIZATION)
+        | 🎬 VIDEO (UNCHANGED)
         |--------------------------------------------------------------------------
         */
         if ($mime === 'video/mp4') {
@@ -38,14 +32,12 @@ class FileUploadService
             $relativePath = $folder . '/' . $filename;
             $fullPath = storage_path('app/public/' . $relativePath);
 
-            // Ensure folder exists
             if (!file_exists(dirname($fullPath))) {
                 mkdir(dirname($fullPath), 0755, true);
             }
 
             $tempPath = $file->getRealPath();
 
-            // ✅ Optimized FFmpeg command
             $command = "ffmpeg -i {$tempPath} -vcodec libx264 -crf 28 -preset fast -vf scale=1280:-2 -acodec aac -b:a 128k -movflags +faststart {$fullPath} 2>&1";
 
             exec($command);
@@ -55,20 +47,16 @@ class FileUploadService
 
         /*
         |--------------------------------------------------------------------------
-        | 🎯 IMAGE HANDLING
+        | 🎯 IMAGE HANDLING (UPGRADED)
         |--------------------------------------------------------------------------
         */
 
-        // ⚠️ GIF → Direct Upload (not recommended)
         if ($mime === 'image/gif') {
             $filename = time() . '_' . uniqid() . '.gif';
-
             Storage::disk('public')->putFileAs($folder, $file, $filename);
-
             return $folder . '/' . $filename;
         }
 
-        // ✅ JPG / PNG / WEBP → Resize + Convert to WEBP
         if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp'])) {
 
             $filename = time() . '_' . uniqid() . '.webp';
@@ -92,9 +80,56 @@ class FileUploadService
                 return null;
             }
 
-            // ✅ Resize logic (Max width = 800px)
             $width = imagesx($image);
             $height = imagesy($image);
+
+            /*
+            |--------------------------------------------------------------------------
+            | 🔥 NEW: MULTIPLE SIZES (Responsive Images)
+            |--------------------------------------------------------------------------
+            */
+
+            $sizes = [150, 300, 600, 800]; // mobile → desktop
+
+            foreach ($sizes as $size) {
+
+                if ($width <= $size) {
+                    continue; // skip unnecessary resize
+                }
+
+                $newWidth = $size;
+                $newHeight = floor($height * ($newWidth / $width));
+
+                $resized = imagecreatetruecolor($newWidth, $newHeight);
+
+                imagecopyresampled(
+                    $resized,
+                    $image,
+                    0, 0, 0, 0,
+                    $newWidth,
+                    $newHeight,
+                    $width,
+                    $height
+                );
+
+                ob_start();
+                imagewebp($resized, null, 75);
+                $webpData = ob_get_clean();
+
+                Storage::disk('public')->put(
+                    $folder . '/' . $size . '_' . $filename,
+                    $webpData
+                );
+
+                // ✅ PHP 8.3 memory safe
+                $resized = null;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | ORIGINAL (UNCHANGED LOGIC)
+            |--------------------------------------------------------------------------
+            */
 
             $maxWidth = 800;
 
@@ -103,6 +138,7 @@ class FileUploadService
                 $newHeight = floor($height * ($newWidth / $width));
 
                 $resized = imagecreatetruecolor($newWidth, $newHeight);
+
                 imagecopyresampled(
                     $resized,
                     $image,
@@ -116,19 +152,21 @@ class FileUploadService
                 $image = $resized;
             }
 
-            // ✅ Convert to WEBP (compressed)
             ob_start();
             imagewebp($image, null, 75);
             $webpData = ob_get_clean();
 
             Storage::disk('public')->put($filePath, $webpData);
 
-            return $filePath;
+            // ✅ PHP 8.3 cleanup
+            $image = null;
+
+            return $filePath; // 👈 SAME RETURN (no breaking change)
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 📁 OTHER FILES (PDF, DOC, ZIP, etc.)
+        | 📁 OTHER FILES (UNCHANGED)
         |--------------------------------------------------------------------------
         */
         $filename = time() . '_' . uniqid() . '.' . $extension;
@@ -138,11 +176,6 @@ class FileUploadService
         return $folder . '/' . $filename;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELETE FILE
-    |--------------------------------------------------------------------------
-    */
     public function delete(?string $filePath): void
     {
         if ($filePath && Storage::disk('public')->exists($filePath)) {
@@ -150,11 +183,6 @@ class FileUploadService
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | REPLACE FILE
-    |--------------------------------------------------------------------------
-    */
     public function replace($file, ?string $oldFilePath, ?string $folder = null, $model = null): ?string
     {
         if ($file) {
@@ -165,15 +193,9 @@ class FileUploadService
         return $oldFilePath;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GENERATE FOLDER FROM MODEL
-    |--------------------------------------------------------------------------
-    */
     private function generateFolderFromModel($model): string
     {
         $className = class_basename($model);
-
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $className));
     }
 }

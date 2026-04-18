@@ -57,22 +57,33 @@ class PreventCitizenBackHistoryMiddleware
 
             img-src 'self' data: https:;
 
-            font-src 'self' https://fonts.gstatic.com;
+            font-src 'self' data: https://fonts.gstatic.com;
 
-            connect-src 'self' https:;
+            connect-src 'self'
+                https://www.google.com
+                https://www.gstatic.com
+                https://maps.googleapis.com
+                https://unpkg.com;
 
             script-src 'self'
                 'unsafe-inline'
                 https://cdnjs.cloudflare.com
                 https://ajax.googleapis.com
-                https://www.gstatic.com;
+                https://www.gstatic.com
+                https://maps.googleapis.com
+                https://www.google.com
+                https://unpkg.com;
 
             style-src 'self'
                 'unsafe-inline'
                 https://fonts.googleapis.com
                 https://cdnjs.cloudflare.com;
 
-            frame-src https://www.google.com https://maps.google.com;
+            frame-src 'self'
+                https://www.google.com
+                https://www.gstatic.com
+                https://maps.google.com
+                https://maps.googleapis.com;
 
             upgrade-insecure-requests;
         ";

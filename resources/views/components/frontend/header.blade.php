@@ -20,39 +20,40 @@
            title="{{ $brand->title ?? 'Home Page' }}"
            aria-label="Go to homepage">
 
-            {{-- 🚀 Responsive + Correct Image Loading --}}
+            {{-- 🚀 FINAL OPTIMIZED LOGO --}}
             <img 
                 src="{{ $logoPath }}" 
 
-                {{-- ✅ REAL responsive sizes --}}
+                {{-- ✅ Better responsive (mobile-first) --}}
                 srcset="
                     {{ $logoPath }} 120w,
                     {{ $logoPath }} 200w,
                     {{ $logoPath }} 300w
                 "
-                sizes="(max-width: 768px) 120px, (max-width: 1200px) 150px, 200px"
+                sizes="(max-width: 576px) 100px, (max-width: 992px) 140px, 180px"
 
                 alt="{{ $brand->title ?? 'Website Logo' }}" 
                 title="{{ $brand->title ?? 'Portfolio Logo' }}"
 
-                width="200"
-                height="100"
+                width="180"
+                height="80"
 
-                {{-- 🚀 Mobile optimization --}}
+                {{-- 🚀 LCP optimization --}}
                 loading="eager"
                 fetchpriority="high"
                 decoding="async"
 
-                style="max-height: 100px; width: auto;">
+                style="max-height: 80px; width: auto;">
         </a>
 
         {{-- ===== Navigation ===== --}}
-        <nav id="navmenu" class="navmenu">
+        <nav id="navmenu" class="navmenu" role="navigation" aria-label="Main Navigation">
             <ul>
 
                 <li>
                     <a href="{{ route('frontend.home') }}"
                        title="Home Page"
+                       aria-label="Go to Home Page"
                        class="{{ request()->routeIs('frontend.home') ? 'active' : '' }}">
                         <b>Home</b>
                     </a>
@@ -61,6 +62,7 @@
                 <li>
                     <a href="{{ route('frontend.about') }}"
                        title="About Abhishek - Laravel Developer"
+                       aria-label="About Abhishek"
                        class="{{ request()->routeIs('frontend.about') ? 'active' : '' }}">
                         <b>About Us</b>
                     </a>
@@ -69,6 +71,7 @@
                 <li>
                     <a href="{{ route('frontend.resume') }}"
                        title="View Resume"
+                       aria-label="View Resume"
                        class="{{ request()->routeIs('frontend.resume') ? 'active' : '' }}">
                         <b>Resume</b>
                     </a>
@@ -77,6 +80,7 @@
                 <li>
                     <a href="{{ route('frontend.services.list') }}"
                        title="Laravel Development Services"
+                       aria-label="View Services"
                        class="{{ request()->routeIs('frontend.services.*') ? 'active' : '' }}">
                         <b>Services</b>
                     </a>
@@ -85,6 +89,7 @@
                 <li>
                     <a href="{{ route('frontend.portfolio.list') }}"
                        title="Portfolio Projects"
+                       aria-label="View Portfolio"
                        class="{{ request()->routeIs('frontend.portfolio.*') ? 'active' : '' }}">
                         <b>Portfolio</b>
                     </a>
@@ -93,6 +98,7 @@
                 <li>
                     <a href="{{ route('frontend.contact') }}"
                        title="Contact Abhishek"
+                       aria-label="Contact Page"
                        class="{{ request()->routeIs('frontend.contact') ? 'active' : '' }}">
                         <b>Contact Us</b>
                     </a>
@@ -100,8 +106,13 @@
 
             </ul>
 
-            {{-- Mobile Toggle --}}
-            <i class="mobile-nav-toggle d-xl-none bi bi-list" aria-label="Toggle Menu"></i>
+            {{-- 🚀 Mobile Toggle (Accessibility fix) --}}
+            <button 
+                class="mobile-nav-toggle d-xl-none bi bi-list"
+                aria-label="Toggle Navigation Menu"
+                aria-expanded="false"
+                type="button">
+            </button>
         </nav>
 
     </div>

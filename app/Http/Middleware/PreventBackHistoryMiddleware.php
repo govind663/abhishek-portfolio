@@ -12,46 +12,72 @@ class PreventBackHistoryMiddleware
     {
         $response = $next($request);
 
-        $clean = fn($value) => str_replace(["\r", "\n"], '', $value);
+        $clean = fn($value) => str_replace(["\r", "\n"], '', trim($value));
 
+        /*
+        |--------------------------------------------------------------------------
+        | 🔒 SECURITY HEADERS
+        |--------------------------------------------------------------------------
+        */
         $headers = [
 
-            // 🔒 Security Headers
-            'X-Frame-Options' => 'DENY',
+            'X-Frame-Options' => 'SAMEORIGIN',
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
 
-            // 🌐 Content Security Policy
+            /*
+            |--------------------------------------------------------------------------
+            | 🌐 FINAL CSP (ALL FIXED)
+            |--------------------------------------------------------------------------
+            */
             'Content-Security-Policy' => "
                 default-src 'self';
-                img-src 'self' data: http: https:;
-                script-src 'self' 'unsafe-inline' 'unsafe-eval' 
-                    http://cdnjs.cloudflare.com
+
+                base-uri 'self';
+                form-action 'self';
+                frame-ancestors 'self';
+                object-src 'none';
+
+                img-src 'self' data: https:;
+
+                font-src 'self' data: https://fonts.gstatic.com;
+
+                connect-src 'self'
+                    https://www.google.com
+                    https://www.gstatic.com
+                    https://maps.googleapis.com;
+
+                script-src 'self'
+                    'unsafe-inline'
+                    'unsafe-eval'
                     https://cdnjs.cloudflare.com
-                    http://ajax.googleapis.com
-                    https://ajax.googleapis.com;
-                style-src 'self' 'unsafe-inline' 
-                    http://fonts.googleapis.com
+                    https://ajax.googleapis.com
+                    https://www.gstatic.com
+                    https://maps.googleapis.com
+                    https://www.google.com
+                    https://unpkg.com;
+
+                style-src 'self'
+                    'unsafe-inline'
                     https://fonts.googleapis.com
-                    http://cdnjs.cloudflare.com
                     https://cdnjs.cloudflare.com;
-                font-src 'self' 
-                    http://fonts.gstatic.com
-                    https://fonts.gstatic.com
-                    data:;
-                connect-src 'self' 
-                    http://cdnjs.cloudflare.com
-                    https://cdnjs.cloudflare.com;
-                frame-src 'self';
+
+                frame-src 'self'
+                    https://www.google.com
+                    https://www.gstatic.com
+                    https://maps.google.com
+                    https://maps.googleapis.com;
+
+                upgrade-insecure-requests;
             ",
 
-            // 🔐 HTTPS Security
+            // 🔐 HTTPS सुरक्षा
             'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains; preload',
         ];
 
         /*
         |--------------------------------------------------------------------------
-        | ⚡ FIX ADDITION (SAFE MERGE - NO CHANGE IN YOUR CODE)
+        | 🧹 CLEAN CSP (REMOVE EXTRA SPACES)
         |--------------------------------------------------------------------------
         */
         if (!empty($headers['Content-Security-Policy'])) {
@@ -62,20 +88,64 @@ class PreventBackHistoryMiddleware
             );
         }
 
-        // ✅ Cache Strategy
+        /*
+        |--------------------------------------------------------------------------
+        | ⚡ CACHE STRATEGY (SMART)
+        |--------------------------------------------------------------------------
+        */
         if ($request->is('backend/assets/*') || $request->is('build/*')) {
-            // Static assets → cacheable
+            // 🟢 Static files → Fast
             $headers['Cache-Control'] = 'public, max-age=31536000, immutable';
-        } else {
-            // Dynamic pages → no-cache
+
+        } elseif (
+            $request->is('admin/*') ||
+            $request->is('login') ||
+            $request->is('register') ||
+            $request->is('dashboard') ||
+            $request->is('profile')
+        ) {
+            // 🔴 Sensitive pages
             $headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0';
             $headers['Pragma'] = 'no-cache';
             $headers['Expires'] = '0';
+
+        } else {
+            // 🟡 Public pages
+            $headers['Cache-Control'] = 'public, max-age=86400';
         }
 
-        // Apply headers
+        /*
+        |--------------------------------------------------------------------------
+        | 🚀 PERFORMANCE BOOST
+        |--------------------------------------------------------------------------
+        */
+        $headers['X-DNS-Prefetch-Control'] = 'on';
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🤖 SEO CONTROL
+        |--------------------------------------------------------------------------
+        */
+        if (
+            $request->is('admin/*') ||
+            $request->is('login') ||
+            $request->is('register') ||
+            $request->is('dashboard')
+        ) {
+            $headers['X-Robots-Tag'] = 'noindex, nofollow';
+        } else {
+            $headers['X-Robots-Tag'] = 'index, follow';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ✅ APPLY HEADERS
+        |--------------------------------------------------------------------------
+        */
         foreach ($headers as $key => $value) {
-            $response->headers->set($key, $clean($value));
+            if (!empty($value)) {
+                $response->headers->set($key, $clean($value));
+            }
         }
 
         return $response;

@@ -72,7 +72,7 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
 : time();
 @endphp
 
-{{-- LCP FIX (important) --}}
+{{-- 🚀 LCP BOOST --}}
 @if($bgUrl && !Str::endsWith(strtolower($bgPath), '.mp4'))
 <link rel="preload" as="image" href="{{ $bgUrl }}?v={{ $bgVersion }}" fetchpriority="high">
 @endif
@@ -82,25 +82,32 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
     {{-- Background --}}
     @if($bgPath && Str::endsWith(strtolower($bgPath), '.mp4'))
 
-    <video class="hero-bg" autoplay muted loop playsinline preload="metadata">
+    <video class="hero-bg"
+        autoplay muted loop playsinline preload="metadata"
+        width="1920" height="1080">
         <source src="{{ $bgUrl }}?v={{ $bgVersion }}" type="video/mp4">
     </video>
 
     @elseif($bgUrl)
 
     <picture>
-        {{-- MOBILE IMAGE (VERY IMPORTANT) --}}
+        {{-- 📱 MOBILE (LIGHT IMAGE REQUIRED) --}}
         <source 
             media="(max-width: 768px)" 
-            srcset="{{ asset('storage/mobile-hero.webp') }}">
+            srcset="{{ asset('storage/mobile-hero.webp') }} 600w">
 
-        {{-- DESKTOP --}}
+        {{-- 💻 DESKTOP --}}
+        <source 
+            media="(min-width: 769px)" 
+            srcset="{{ $bgUrl }}?v={{ $bgVersion }} 1920w">
+
         <img 
             src="{{ $bgUrl }}?v={{ $bgVersion }}" 
             class="hero-bg"
             alt="Background"
             fetchpriority="high"
             decoding="async"
+            loading="eager"
             width="1920"
             height="1080">
     </picture>
@@ -112,13 +119,13 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
     <div class="container h-100 d-flex align-items-center">
         <div class="row w-100 align-items-center justify-content-center">
 
-            {{-- PROFILE IMAGE (FIXED SIZE + RESPONSIVE) --}}
+            {{-- PROFILE IMAGE --}}
             <div class="col-md-4 d-flex justify-content-center mb-4 mb-md-0">
 
                 <img 
                     src="{{ $profileUrl }}?v={{ $profileVersion }}" 
 
-                    {{-- RESPONSIVE IMAGE FIX --}}
+                    {{-- 🔥 RESPONSIVE IMAGE --}}
                     srcset="
                         {{ $profileUrl }}?v={{ $profileVersion }} 400w,
                         {{ $profileUrl }}?v={{ $profileVersion }} 200w
