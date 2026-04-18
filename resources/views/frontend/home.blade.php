@@ -10,8 +10,7 @@ Explore portfolio, services, and projects.
 @endsection
 
 @section('meta_keywords')
-Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Developer, API Developer, Portfolio, Web
-Development Services
+Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Developer, API Developer, Portfolio, Web Development Services
 @endsection
 
 @section('canonical')
@@ -19,12 +18,41 @@ Development Services
 @endsection
 
 @push('styles')
-{{-- Custom CSS likes --}}
+{{-- CSS (Non-blocking) --}}
 <link rel="stylesheet" href="{{ asset('frontend/assets/css/hero.css') }}" media="print" onload="this.media='all'">
+<noscript>
+<link rel="stylesheet" href="{{ asset('frontend/assets/css/hero.css') }}">
+</noscript>
+
+{{-- Critical CSS --}}
+<style>
+.hero {
+  position: relative;
+  min-height: 100vh;
+}
+.hero-bg {
+  position: absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  object-fit:cover;
+}
+
+/* CLS FIX */
+.profile-photo {
+  width:140px;
+  height:140px;
+}
+@media (min-width:768px){
+  .profile-photo {
+    width:400px;
+    height:400px;
+  }
+}
+</style>
 @endpush
 
 @section('content')
-{{-- Hero Section --}}
+
 @php
 use Illuminate\Support\Str;
 
@@ -34,7 +62,7 @@ $profilePath = $hero->getRawOriginal('profile_image');
 $bgUrl = $bgPath ? asset('storage/' . $bgPath) : null;
 $profileUrl = $profilePath ? asset('storage/' . $profilePath) : $hero->profile_image;
 
-// Cache version (safe)
+/* version cache */
 $bgVersion = ($bgPath && file_exists(public_path('storage/' . $bgPath)))
 ? filemtime(public_path('storage/' . $bgPath))
 : time();
@@ -44,16 +72,39 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
 : time();
 @endphp
 
+{{-- LCP FIX (important) --}}
+@if($bgUrl && !Str::endsWith(strtolower($bgPath), '.mp4'))
+<link rel="preload" as="image" href="{{ $bgUrl }}?v={{ $bgVersion }}" fetchpriority="high">
+@endif
+
 <section id="hero" class="hero position-relative">
 
     {{-- Background --}}
     @if($bgPath && Str::endsWith(strtolower($bgPath), '.mp4'))
-    <video class="hero-bg" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;">
 
+    <video class="hero-bg" autoplay muted loop playsinline preload="metadata">
         <source src="{{ $bgUrl }}?v={{ $bgVersion }}" type="video/mp4">
     </video>
+
     @elseif($bgUrl)
-    <img src="{{ $bgUrl }}?v={{ $bgVersion }}" class="hero-bg" alt="Background" title="Background Image" loading="eager" style="width:100%;height:100%;object-fit:cover;">
+
+    <picture>
+        {{-- MOBILE IMAGE (VERY IMPORTANT) --}}
+        <source 
+            media="(max-width: 768px)" 
+            srcset="{{ asset('storage/mobile-hero.webp') }}">
+
+        {{-- DESKTOP --}}
+        <img 
+            src="{{ $bgUrl }}?v={{ $bgVersion }}" 
+            class="hero-bg"
+            alt="Background"
+            fetchpriority="high"
+            decoding="async"
+            width="1920"
+            height="1080">
+    </picture>
+
     @endif
 
     <div class="hero-overlay"></div>
@@ -61,55 +112,71 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
     <div class="container h-100 d-flex align-items-center">
         <div class="row w-100 align-items-center justify-content-center">
 
-            {{-- Profile Image with cache --}}
+            {{-- PROFILE IMAGE (FIXED SIZE + RESPONSIVE) --}}
             <div class="col-md-4 d-flex justify-content-center mb-4 mb-md-0">
-                <img src="{{ $profileUrl }}?v={{ $profileVersion }}" alt="{{ $hero->name }} Profile Photo" title="{{ $hero->name }} Profile Photo" loading="eager" class="img-fluid profile-photo rounded-circle" width="400" height="400">
+
+                <img 
+                    src="{{ $profileUrl }}?v={{ $profileVersion }}" 
+
+                    {{-- RESPONSIVE IMAGE FIX --}}
+                    srcset="
+                        {{ $profileUrl }}?v={{ $profileVersion }} 400w,
+                        {{ $profileUrl }}?v={{ $profileVersion }} 200w
+                    "
+                    sizes="(max-width: 768px) 140px, 400px"
+
+                    alt="{{ $hero->name }} Profile Photo" 
+                    title="{{ $hero->name }} Profile Photo"
+                    loading="lazy"
+                    decoding="async"
+                    class="img-fluid profile-photo rounded-circle"
+                    width="400"
+                    height="400">
+
             </div>
 
-            {{-- Content --}}
+            {{-- CONTENT --}}
             <div class="col-md-8 text-md-start text-overlay">
 
                 <h1>{{ $hero->name }}</h1>
 
                 <p class="intro-line">
                     I'm
-                    <span class="typed" data-typed-items="{{ implode(',', $hero->typed_items ?? []) }}">
-                    </span>
+                    <span class="typed" data-typed-items="{{ implode(',', $hero->typed_items ?? []) }}"></span>
                 </p>
 
-                <p class="mt-3" style="color: #ddd; font-size: 20px; text-align: justify !important;">
+                <p class="mt-3" style="color:#ddd;font-size:20px;text-align:justify !important;">
                     {{ $hero->description }}
                 </p>
 
                 {{-- CTA --}}
                 <div class="mt-3">
-                    <a href="{{ route('frontend.contact') }}" class="btn btn-success" title="Contact Me">
-                        <i class="bi bi-envelope-fill me-1"></i>
-                        Contact Me
+                    <a href="{{ route('frontend.contact') }}" class="btn btn-success">
+                        <i class="bi bi-envelope-fill me-1"></i> Contact Me
                     </a>
 
-                    <a href="{{ asset('storage/' . $hero->getRawOriginal('resume_file')) }}" class="btn btn-primary" title="Download Resume" target="_blank">
-                        <i class="bi bi-download me-1"></i>
-                        Resume
+                    <a href="{{ asset('storage/' . $hero->getRawOriginal('resume_file')) }}" class="btn btn-primary" target="_blank">
+                        <i class="bi bi-download me-1"></i> Resume
                     </a>
                 </div>
 
                 <hr class="bg-light">
-                {{-- Social Links (Dynamic + Cached) --}}
+
+                {{-- SOCIAL --}}
                 @php
                 use Illuminate\Support\Facades\Cache;
                 use App\Models\SocialLink;
 
                 $socialLinks = Cache::remember('header_social_links', 3600, function () {
-                return SocialLink::active()->latestId()->get();
+                    return SocialLink::active()->latestId()->get();
                 });
 
                 $defaultColors = [
-                'GitHub' => 'rgb(205, 79, 1)',
-                'GitLab' => 'rgb(205, 79, 1)',
-                'Facebook' => 'rgb(5, 93, 193)',
-                'Instagram' => 'rgb(243, 16, 122)',
-                'LinkedIn' => 'rgb(70, 70, 237)',
+                    'GitHub' => 'rgb(205,79,1)',
+                    'GitLab' => 'rgb(205,79,1)',
+                    'Facebook' => 'rgb(5,93,193)',
+                    'Instagram' => 'rgb(243,16,122)',
+                    'LinkedIn' => 'rgb(70,70,237)',
                 ];
                 @endphp
 
@@ -119,13 +186,15 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
 
                     @php
                     $platformKey = str_replace(' Profile', '', $social->platform);
-                    $iconColor = $social->color ?? ($defaultColors[$platformKey] ?? '#ffffff');
+                    $iconColor = $social->color ?? ($defaultColors[$platformKey] ?? '#fff');
                     @endphp
 
-                    <a href="{{ $social->url ?? '#' }}" target="_blank" rel="noopener noreferrer" aria-label="Visit {{ $social->platform ?? 'Social Profile' }}" title="Visit {{ $social->platform ?? 'Social Profile' }}">
+                    <a href="{{ $social->url ?? '#' }}" 
+                       target="_blank" 
+                       rel="noopener noreferrer nofollow"
+                       aria-label="Visit {{ $social->platform }}">
 
-                        <i class="{{ $social->icon ?? 'bi bi-link' }}" style="color: {{ $iconColor }};">
-                        </i>
+                        <i class="{{ $social->icon ?? 'bi bi-link' }}" style="color: {{ $iconColor }}"></i>
 
                     </a>
 
@@ -140,12 +209,10 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
     </div>
 </section>
 
-{{-- Chat Bot Start --}}
 @include('partials.chatbot')
-{{-- Chat Bot End --}}
+
 @endsection
 
 @push('scripts')
-{{-- Custom JS links --}}
 <script src="{{ asset('frontend/assets/js/hero.js') }}" defer></script>
 @endpush

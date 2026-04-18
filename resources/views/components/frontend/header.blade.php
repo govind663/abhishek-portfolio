@@ -9,44 +9,47 @@
             $brand = Cache::remember('brand_logo', 60 * 60, function () {
                 return BrandDescription::active()->latestId()->first();
             });
+
+            $logoPath = $brand && $brand->logo
+                ? asset('storage/' . $brand->logo)
+                : asset('/backend/assets/img/logo/abhishek-potfolio_black_logo.webp');
         @endphp
 
         <a href="{{ route('frontend.home') }}" 
-        class="logo d-flex align-items-center" 
-        title="{{ $brand->title ?? 'Home Page' }}"
-        aria-label="Go to homepage">
+           class="logo d-flex align-items-center" 
+           title="{{ $brand->title ?? 'Home Page' }}"
+           aria-label="Go to homepage">
 
-            @if($brand && $brand->logo)
-                <img 
-                    src="{{ asset('storage/' . $brand->logo) }}" 
-                    alt="{{ $brand->title ?? 'Website Logo' }}" 
-                    title="{{ $brand->title ?? 'Portfolio Logo' }}"
-                    width="200"
-                    height="100"
-                    loading="eager"
-                    fetchpriority="high"
-                    decoding="async"
-                    style="max-height: 100px; width: 200px;">
-            @else
-                <img 
-                    src="{{ asset('/backend/assets/img/logo/abhishek-potfolio_black_logo.webp') }}" 
-                    alt="Default Website Logo" 
-                    title="Default Portfolio Logo"
-                    width="200"
-                    height="100"
-                    loading="eager"
-                    fetchpriority="high"
-                    decoding="async"
-                    style="max-height: 100px; width: 200px;">
-            @endif
+            {{-- 🚀 Responsive + Correct Image Loading --}}
+            <img 
+                src="{{ $logoPath }}" 
 
+                {{-- ✅ REAL responsive sizes --}}
+                srcset="
+                    {{ $logoPath }} 120w,
+                    {{ $logoPath }} 200w,
+                    {{ $logoPath }} 300w
+                "
+                sizes="(max-width: 768px) 120px, (max-width: 1200px) 150px, 200px"
+
+                alt="{{ $brand->title ?? 'Website Logo' }}" 
+                title="{{ $brand->title ?? 'Portfolio Logo' }}"
+
+                width="200"
+                height="100"
+
+                {{-- 🚀 Mobile optimization --}}
+                loading="eager"
+                fetchpriority="high"
+                decoding="async"
+
+                style="max-height: 100px; width: auto;">
         </a>
 
         {{-- ===== Navigation ===== --}}
         <nav id="navmenu" class="navmenu">
             <ul>
 
-                {{-- Home --}}
                 <li>
                     <a href="{{ route('frontend.home') }}"
                        title="Home Page"
@@ -55,7 +58,6 @@
                     </a>
                 </li>
 
-                {{-- About --}}
                 <li>
                     <a href="{{ route('frontend.about') }}"
                        title="About Abhishek - Laravel Developer"
@@ -64,7 +66,6 @@
                     </a>
                 </li>
 
-                {{-- Resume --}}
                 <li>
                     <a href="{{ route('frontend.resume') }}"
                        title="View Resume"
@@ -73,7 +74,6 @@
                     </a>
                 </li>
 
-                {{-- Services --}}
                 <li>
                     <a href="{{ route('frontend.services.list') }}"
                        title="Laravel Development Services"
@@ -82,7 +82,6 @@
                     </a>
                 </li>
 
-                {{-- Portfolio --}}
                 <li>
                     <a href="{{ route('frontend.portfolio.list') }}"
                        title="Portfolio Projects"
@@ -91,7 +90,6 @@
                     </a>
                 </li>
 
-                {{-- Contact --}}
                 <li>
                     <a href="{{ route('frontend.contact') }}"
                        title="Contact Abhishek"
@@ -103,7 +101,7 @@
             </ul>
 
             {{-- Mobile Toggle --}}
-            <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
+            <i class="mobile-nav-toggle d-xl-none bi bi-list" aria-label="Toggle Menu"></i>
         </nav>
 
     </div>
