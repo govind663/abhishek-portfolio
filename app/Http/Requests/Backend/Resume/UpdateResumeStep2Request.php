@@ -4,6 +4,7 @@ namespace App\Http\Requests\Backend\Resume;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Carbon;
 
 class UpdateResumeStep2Request extends FormRequest
 {
@@ -14,15 +15,19 @@ class UpdateResumeStep2Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (CLEAN + NORMALIZE)
+    | PREPARE DATA (CLEAN + FILTER EMPTY)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
-        if (!empty($this->educations) && is_array($this->educations)) {
+        $educationsInput = $this->educations ?? [];
 
-            $educations = array_map(function ($edu) {
+        if (!is_array($educationsInput)) {
+            $educationsInput = [];
+        }
 
+        $educations = collect($educationsInput)
+            ->map(function ($edu) {
                 return [
                     'id'          => $edu['id'] ?? null,
                     'degree'      => $this->clean($edu['degree'] ?? null),
@@ -31,21 +36,27 @@ class UpdateResumeStep2Request extends FormRequest
                     'university'  => $this->clean($edu['university'] ?? null),
                     'location'    => $this->clean($edu['location'] ?? null),
 
-                    'start_date'  => !empty($edu['start_date']) ? (string) $edu['start_date'] : null,
-                    'end_date'    => !empty($edu['end_date']) ? (string) $edu['end_date'] : null,
+                    'start_date'  => !empty($edu['start_date']) ? $edu['start_date'] : null,
+                    'end_date'    => !empty($edu['end_date']) ? $edu['end_date'] : null,
 
                     'is_current'  => filter_var(
                         $edu['is_current'] ?? false,
                         FILTER_VALIDATE_BOOLEAN
                     ),
                 ];
+            })
+            // 🔥 REMOVE EMPTY ROWS
+            ->filter(function ($edu) {
+                return !empty($edu['degree']) ||
+                       !empty($edu['institution']) ||
+                       !empty($edu['start_date']);
+            })
+            ->values()
+            ->toArray();
 
-            }, $this->educations);
-
-            $this->merge([
-                'educations' => array_values($educations)
-            ]);
-        }
+        $this->merge([
+            'educations' => $educations
+        ]);
     }
 
     /*
@@ -55,7 +66,9 @@ class UpdateResumeStep2Request extends FormRequest
     */
     public function rules(): array
     {
-        $resumeId = optional($this->route('resume'))->id;
+        // ✅ SAFE: route model binding handle karega (object ya id dono)
+        $resumeId = optional($this->route('resume'))->id 
+                    ?? $this->route('id');
 
         return [
             'educations' => ['required', 'array', 'min:1'],
@@ -64,7 +77,10 @@ class UpdateResumeStep2Request extends FormRequest
                 'nullable',
                 'integer',
                 Rule::exists('educations', 'id')
-                    ->where('resume_id', $resumeId)
+                    ->where(function ($query) use ($resumeId) {
+                        $query->where('resume_id', $resumeId)
+                              ->whereNull('deleted_at');
+                    }),
             ],
 
             'educations.*.degree' => ['required', 'string', 'max:255'],
@@ -73,9 +89,12 @@ class UpdateResumeStep2Request extends FormRequest
             'educations.*.university' => ['nullable', 'string', 'max:255'],
             'educations.*.location' => ['nullable', 'string', 'max:255'],
 
-            'educations.*.start_date' => ['required', 'date', 'before_or_equal:today'],
+            'educations.*.start_date' => [
+                'required',
+                'date',
+                'before_or_equal:today'
+            ],
 
-            // FIX: keep rule but remove wildcard dependency issue risk
             'educations.*.end_date' => ['nullable', 'date'],
 
             'educations.*.is_current' => ['nullable', 'boolean'],
@@ -84,7 +103,7 @@ class UpdateResumeStep2Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | CUSTOM VALIDATION (SAFE WILDCARD FIX)
+    | CUSTOM VALIDATION (SAFE LOGIC)
     |--------------------------------------------------------------------------
     */
     public function withValidator($validator)
@@ -94,34 +113,35 @@ class UpdateResumeStep2Request extends FormRequest
             foreach ($this->educations ?? [] as $index => $edu) {
 
                 $start = $edu['start_date'] ?? null;
-                $end = $edu['end_date'] ?? null;
+                $end   = $edu['end_date'] ?? null;
                 $isCurrent = (bool) ($edu['is_current'] ?? false);
 
-                /*
-                |--------------------------------------------------------------------------
-                | 1. END DATE VALIDATION (START <= END)
-                |--------------------------------------------------------------------------
-                */
-                if (!empty($start) && !empty($end)) {
+                try {
 
-                    if (strtotime($end) < strtotime($start)) {
+                    // ✅ END DATE >= START DATE
+                    if ($start && $end) {
+
+                        $startDate = Carbon::parse($start);
+                        $endDate   = Carbon::parse($end);
+
+                        if ($endDate->lt($startDate)) {
+                            $validator->errors()->add(
+                                "educations.$index.end_date",
+                                __('End date must be after or equal to start date')
+                            );
+                        }
+                    }
+
+                    // ✅ CURRENT EDUCATION RULE
+                    if ($isCurrent && $end) {
                         $validator->errors()->add(
                             "educations.$index.end_date",
-                            __('End date must be after or equal to start date')
+                            __('End date must be empty if currently studying')
                         );
                     }
-                }
 
-                /*
-                |--------------------------------------------------------------------------
-                | 2. CURRENT EDUCATION RULE
-                |--------------------------------------------------------------------------
-                */
-                if ($isCurrent && !empty($end)) {
-                    $validator->errors()->add(
-                        "educations.$index.end_date",
-                        __('End date must be empty if currently studying')
-                    );
+                } catch (\Exception $e) {
+                    // ignore (date rule already handle karega)
                 }
             }
         });
@@ -136,31 +156,23 @@ class UpdateResumeStep2Request extends FormRequest
     {
         return [
             'educations.required' => __('Education details are required'),
-            'educations.array'    => __('Education must be a valid array'),
-            'educations.min'      => __('At least one education record is required'),
+            'educations.min'      => __('At least one valid education record is required'),
 
-            'educations.*.id.integer' => __('Invalid education ID'),
-            'educations.*.id.exists'  => __('Selected education does not belong to this resume'),
+            'educations.*.id.exists' => __('Invalid education record'),
 
             'educations.*.degree.required' => __('Degree is required'),
-            'educations.*.degree.max'      => __('Degree must not exceed 255 characters'),
-
             'educations.*.institution.required' => __('Institution is required'),
-            'educations.*.institution.max'      => __('Institution must not exceed 255 characters'),
 
             'educations.*.start_date.required' => __('Start date is required'),
-            'educations.*.start_date.date'     => __('Start date must be a valid date'),
             'educations.*.start_date.before_or_equal' => __('Start date cannot be in the future'),
 
             'educations.*.end_date.date' => __('End date must be a valid date'),
-
-            'educations.*.is_current.boolean' => __('Current status must be true or false'),
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | HELPER FUNCTION
+    | HELPER
     |--------------------------------------------------------------------------
     */
     private function clean($value)

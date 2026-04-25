@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Backend\Resume;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreResumeStep1Request extends FormRequest
 {
@@ -22,10 +23,10 @@ class StoreResumeStep1Request extends FormRequest
             'name'     => $this->clean($this->name),
             'title'    => $this->clean($this->title),
             'email'    => strtolower(trim((string) $this->email)),
-            'phone'    => trim((string) $this->phone),
+            'phone'    => $this->normalizePhone($this->phone),
             'location' => $this->clean($this->location),
             'summary'  => trim((string) $this->summary),
-            'status'   => trim((string) $this->status),
+            'status'   => strtolower(trim((string) $this->status)),
         ]);
     }
 
@@ -37,50 +38,32 @@ class StoreResumeStep1Request extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'name' => ['required','string','max:255'],
 
-            'title' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'title' => ['required','string','max:255'],
 
-            'summary' => [
-                'required',
-                'string',
-                'min:10',
-                'max:2000'
-            ],
+            'summary' => ['required','string','min:10','max:2000'],
 
             'email' => [
                 'required',
-                'email:rfc,dns',
+                'email:rfc',
                 'max:255',
-                'unique:resumes,email'
+                Rule::unique('resumes', 'email')
             ],
 
             'phone' => [
                 'required',
                 'string',
-                'min:8',
-                'max:20',
-                'regex:/^[0-9+\-\s()]+$/',
-                'unique:resumes,phone'
+                // INDIA MOBILE VALIDATION
+                'regex:/^(?:\+91|91)?[6-9]\d{9}$/',
+                Rule::unique('resumes', 'phone')
             ],
 
-            'location' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'location' => ['required','string','max:255'],
 
             'status' => [
                 'required',
-                'in:active,inactive'
+                Rule::in(['active', 'inactive'])
             ]
         ];
     }
@@ -93,42 +76,40 @@ class StoreResumeStep1Request extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => __('Name is required'),
-            'name.max'      => __('Name must not exceed 255 characters'),
-
-            'title.required' => __('Title is required'),
-            'title.max'      => __('Title must not exceed 255 characters'),
-
-            'summary.required' => __('Summary is required'),
-            'summary.min'      => __('Summary must be at least 10 characters'),
-            'summary.max'      => __('Summary must not exceed 2000 characters'),
-
-            'email.required' => __('Email Address is required'),
-            'email.email'    => __('Please enter a valid email address'),
-            'email.max'      => __('Email Address must not exceed 255 characters'),
-            'email.unique'   => __('This email address is already associated with another resume'),
-
-            'phone.required' => __('Phone number is required'),
-            'phone.regex'    => __('Phone number format is invalid'),
-            'phone.min'      => __('Phone number must be at least 8 characters'),
-            'phone.max'      => __('Phone number must not exceed 20 characters'),
-            'phone.unique'   => __('This phone number is already associated with another resume'),
-
-            'location.required' => __('Location is required'),
-            'location.max'      => __('Location must not exceed 255 characters'),
-
-            'status.required' => __('Status is required'),
-            'status.in'       => __('Status must be either active or inactive'),
+            'phone.regex' => __('Enter valid Indian mobile number (10 digits, starts with 6-9, optional +91)'),
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | HELPER FUNCTION (Clean Input)
+    | HELPERS
     |--------------------------------------------------------------------------
     */
+
     private function clean($value)
     {
-        return $value ? trim(preg_replace('/\s+/', ' ', (string) $value)) : null;
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
+    }
+
+    private function normalizePhone($value)
+    {
+        if (!$value) return null;
+
+        // remove spaces + special chars except +
+        $value = preg_replace('/[^0-9+]/', '', $value);
+
+        // convert 91XXXXXXXXXX → +91XXXXXXXXXX
+        if (preg_match('/^91[6-9]\d{9}$/', $value)) {
+            $value = '+' . $value;
+        }
+
+        // convert 10 digit → +91XXXXXXXXXX
+        if (preg_match('/^[6-9]\d{9}$/', $value)) {
+            $value = '+91' . $value;
+        }
+
+        return $value;
     }
 }

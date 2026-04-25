@@ -10,34 +10,38 @@ class ExperienceDetail extends Model
 {
     use SoftDeletes, UserTracking;
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONSTANTS
-    |--------------------------------------------------------------------------
-    */
-    const STATUS_ACTIVE = 'active';
-    const STATUS_INACTIVE = 'inactive';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
 
-    /*
-    |--------------------------------------------------------------------------
-    | TABLE
-    |--------------------------------------------------------------------------
-    */
     protected $table = 'experience_details';
 
-    /*
-    |--------------------------------------------------------------------------
-    | MASS ASSIGNMENT
-    |--------------------------------------------------------------------------
-    */
     protected $fillable = [
         'experience_id',
         'description',
         'status',
         'created_by',
         'updated_by',
-        'deleted_by'
+        'deleted_by',
     ];
+
+    protected $attributes = [
+        'status' => self::STATUS_ACTIVE,
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | MODEL EVENTS (FIXED)
+    |--------------------------------------------------------------------------
+    */
+    protected static function booted()
+    {
+        // ✅ creating + updating दोनों cover
+        static::saving(function ($model) {
+            if (empty($model->status)) {
+                $model->status = self::STATUS_ACTIVE;
+            }
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -51,7 +55,7 @@ class ExperienceDetail extends Model
 
     public function scopeLatestId($query)
     {
-        return $query->orderBy('id', 'desc');
+        return $query->latest('id');
     }
 
     /*
@@ -66,11 +70,49 @@ class ExperienceDetail extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS (OPTIONAL)
+    | ACCESSORS (IMPROVED)
     |--------------------------------------------------------------------------
     */
     public function getDescriptionAttribute($value)
     {
-        return ucfirst($value);
+        return $this->formatText($value);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MUTATORS (CLEAN INPUT)
+    |--------------------------------------------------------------------------
+    */
+    public function setDescriptionAttribute($value)
+    {
+        $this->attributes['description'] = $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER
+    |--------------------------------------------------------------------------
+    */
+    private function formatText($value)
+    {
+        if (!$value) {
+            return $value;
+        }
+
+        return collect(preg_split('/\s+/', strtolower(trim($value))))
+            ->map(fn($word) => ucfirst($word))
+            ->implode(' ');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 }

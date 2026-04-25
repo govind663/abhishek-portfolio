@@ -82,7 +82,7 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE SINGLE
+    | DELETE SINGLE (SOFT DELETE)
     |--------------------------------------------------------------------------
     */
     public function delete($id): bool
@@ -92,7 +92,7 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET BY RESUME (SAFE)
+    | GET BY RESUME
     |--------------------------------------------------------------------------
     */
     public function getByResume($resumeId): Collection
@@ -100,12 +100,12 @@ class TechnicalSkillRepository
         return $this->model
             ->where('resume_id', $resumeId)
             ->latest('id')
-            ->get() ?? collect();
+            ->get();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE BY RESUME
+    | DELETE BY RESUME (SOFT DELETE)
     |--------------------------------------------------------------------------
     */
     public function deleteByResume($resumeId): bool
@@ -119,25 +119,28 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | BULK INSERT (SAFE + VALIDATION + LOGGING)
+    | BULK INSERT (SAFE + CLEAN)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $skills, $resumeId): bool
     {
         try {
+
             if (empty($skills)) {
                 return false;
             }
 
             $now = now();
             $userId = Auth::id();
-
             $data = [];
 
             foreach ($skills as $skill) {
 
-                // skip empty rows
-                if (empty($skill['skill_name'])) {
+                // ✅ skip empty rows
+                if (
+                    empty($skill['skill_name']) &&
+                    empty($skill['category'])
+                ) {
                     continue;
                 }
 
@@ -149,7 +152,6 @@ class TechnicalSkillRepository
                     'icon_viewbox' => $skill['icon_viewbox'] ?? null,
                     'icon_fill'    => $skill['icon_fill'] ?? null,
                     'status'       => $skill['status'] ?? TechnicalSkill::STATUS_ACTIVE,
-
                     'created_by'   => $userId,
                     'updated_by'   => $userId,
                     'created_at'   => $now,
@@ -161,7 +163,14 @@ class TechnicalSkillRepository
                 return false;
             }
 
-            return $this->model->insert($data);
+            $this->model->insert($data);
+
+            Log::info('Skill Bulk Insert Success', [
+                'resume_id' => $resumeId,
+                'count'     => count($data)
+            ]);
+
+            return true;
 
         } catch (\Throwable $e) {
 
@@ -176,12 +185,13 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | FINAL SYNC (SAFE + LOGGING)
+    | SYNC (PRODUCTION SAFE)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool
     {
         try {
+
             $userId = Auth::id();
 
             $existingIds = $existing->pluck('id')->toArray();
@@ -189,7 +199,7 @@ class TechnicalSkillRepository
 
             /*
             |--------------------------------------------------------------------------
-            | DELETE REMOVED
+            | DELETE REMOVED (SOFT)
             |--------------------------------------------------------------------------
             */
             $deleteIds = array_diff($existingIds, $incomingIds);
@@ -203,12 +213,16 @@ class TechnicalSkillRepository
 
             /*
             |--------------------------------------------------------------------------
-            | UPDATE / CREATE
+            | UPSERT
             |--------------------------------------------------------------------------
             */
             foreach ($incoming as $skill) {
 
-                if (empty($skill['skill_name'])) {
+                // ✅ skip empty rows
+                if (
+                    empty($skill['skill_name']) &&
+                    empty($skill['category'])
+                ) {
                     continue;
                 }
 
@@ -224,6 +238,7 @@ class TechnicalSkillRepository
 
                 if (!empty($skill['id'])) {
 
+                    // ✅ SAFE UPDATE (ownership protected)
                     $this->model
                         ->where('id', $skill['id'])
                         ->where('resume_id', $resumeId)
@@ -231,11 +246,17 @@ class TechnicalSkillRepository
 
                 } else {
 
+                    // ✅ CREATE
                     $payload['created_by'] = $userId;
 
                     $this->model->create($payload);
                 }
             }
+
+            Log::info('Skill Sync Success', [
+                'resume_id' => $resumeId,
+                'incoming_count' => count($incoming)
+            ]);
 
             return true;
 

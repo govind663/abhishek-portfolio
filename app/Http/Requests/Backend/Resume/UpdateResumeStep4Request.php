@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Backend\Resume;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Carbon;
 
 class UpdateResumeStep4Request extends FormRequest
 {
@@ -13,7 +15,7 @@ class UpdateResumeStep4Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (Normalize & Clean Input)
+    | PREPARE DATA (SAFE + CLEAN + FILTER)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
@@ -24,39 +26,52 @@ class UpdateResumeStep4Request extends FormRequest
             $experiencesInput = [];
         }
 
-        $experiences = array_map(function ($exp) {
+        $experiences = collect($experiencesInput)
+            ->map(function ($exp) {
 
-            $detailsInput = $exp['details'] ?? [];
+                $detailsInput = is_array($exp['details'] ?? null)
+                    ? $exp['details']
+                    : [];
 
-            if (!is_array($detailsInput)) {
-                $detailsInput = [];
-            }
+                $details = collect($detailsInput)
+                    ->map(function ($detail) {
+                        return [
+                            'id'          => $detail['id'] ?? null,
+                            'description' => $this->clean($detail['description'] ?? null),
+                        ];
+                    })
+                    ->filter(fn ($d) => !empty($d['description']))
+                    ->values()
+                    ->toArray();
 
-            return [
-                'id'          => $exp['id'] ?? null,
-                'designation' => $this->clean($exp['designation'] ?? null),
-                'company'     => $this->clean($exp['company'] ?? null),
-                'location'    => $this->clean($exp['location'] ?? null),
+                return [
+                    'id'          => $exp['id'] ?? null,
+                    'designation' => $this->clean($exp['designation'] ?? null),
+                    'company'     => $this->clean($exp['company'] ?? null),
+                    'location'    => $this->clean($exp['location'] ?? null),
 
-                'start_date'  => !empty($exp['start_date']) ? $exp['start_date'] : null,
-                'end_date'    => !empty($exp['end_date']) ? $exp['end_date'] : null,
+                    'start_date'  => !empty($exp['start_date']) ? (string) $exp['start_date'] : null,
+                    'end_date'    => !empty($exp['end_date']) ? (string) $exp['end_date'] : null,
 
-                'is_current'  => filter_var(
-                    $exp['is_current'] ?? false,
-                    FILTER_VALIDATE_BOOLEAN
-                ),
+                    'is_current'  => filter_var(
+                        $exp['is_current'] ?? false,
+                        FILTER_VALIDATE_BOOLEAN
+                    ),
 
-                'details' => array_values(array_map(function ($detail) {
-                    return [
-                        'id'          => $detail['id'] ?? null,
-                        'description' => $this->clean($detail['description'] ?? null),
-                    ];
-                }, $detailsInput)),
-            ];
-        }, $experiencesInput);
+                    'details' => $details,
+                ];
+            })
+            // 🔥 remove fully empty rows
+            ->filter(function ($exp) {
+                return !empty($exp['designation']) ||
+                       !empty($exp['company']) ||
+                       !empty($exp['start_date']);
+            })
+            ->values()
+            ->toArray();
 
         $this->merge([
-            'experiences' => array_values($experiences)
+            'experiences' => $experiences
         ]);
     }
 
@@ -67,32 +82,23 @@ class UpdateResumeStep4Request extends FormRequest
     */
     public function rules(): array
     {
+        $resumeId = optional($this->route('resume'))->id;
+
         return [
             'experiences' => ['required', 'array', 'min:1'],
 
+            // ✅ ownership + soft delete safe
             'experiences.*.id' => [
                 'nullable',
                 'integer',
-                'exists:experiences,id'
+                Rule::exists('experiences', 'id')
+                    ->where('resume_id', $resumeId)
+                    ->whereNull('deleted_at')
             ],
 
-            'experiences.*.designation' => [
-                'required',
-                'string',
-                'max:255'
-            ],
-
-            'experiences.*.company' => [
-                'required',
-                'string',
-                'max:255'
-            ],
-
-            'experiences.*.location' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
+            'experiences.*.designation' => ['required', 'string', 'max:255'],
+            'experiences.*.company'     => ['required', 'string', 'max:255'],
+            'experiences.*.location'    => ['nullable', 'string', 'max:255'],
 
             'experiences.*.start_date' => [
                 'required',
@@ -100,31 +106,23 @@ class UpdateResumeStep4Request extends FormRequest
                 'before_or_equal:today'
             ],
 
-            'experiences.*.end_date' => [
-                'nullable',
-                'date',
-            ],
+            'experiences.*.end_date' => ['nullable', 'date'],
 
-            'experiences.*.is_current' => [
-                'required',
-                'boolean'
-            ],
+            'experiences.*.is_current' => ['required', 'boolean'],
 
             /*
             |--------------------------------------------------------------------------
-            | NESTED DETAILS
+            | DETAILS VALIDATION
             |--------------------------------------------------------------------------
             */
-            'experiences.*.details' => [
-                'required',
-                'array',
-                'min:1'
-            ],
+            'experiences.*.details' => ['required', 'array', 'min:1'],
 
+            // ✅ simplified + safe ownership check
             'experiences.*.details.*.id' => [
                 'nullable',
                 'integer',
-                'exists:experience_details,id'
+                Rule::exists('experience_details', 'id')
+                    ->whereNull('deleted_at')
             ],
 
             'experiences.*.details.*.description' => [
@@ -137,7 +135,7 @@ class UpdateResumeStep4Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | CUSTOM VALIDATION LOGIC
+    | CUSTOM VALIDATION (SAFE + CARBON)
     |--------------------------------------------------------------------------
     */
     public function withValidator($validator)
@@ -148,23 +146,38 @@ class UpdateResumeStep4Request extends FormRequest
 
                 $start = $exp['start_date'] ?? null;
                 $end   = $exp['end_date'] ?? null;
+                $isCurrent = (bool) ($exp['is_current'] ?? false);
 
-                // End date must be >= start date
-                if (!empty($start) && !empty($end)) {
-                    if (strtotime($end) < strtotime($start)) {
+                try {
+
+                    if ($start && $end) {
+                        $startDate = Carbon::parse($start);
+                        $endDate   = Carbon::parse($end);
+
+                        if ($endDate->lt($startDate)) {
+                            $validator->errors()->add(
+                                "experiences.$index.end_date",
+                                __('End date must be after or equal to start date')
+                            );
+                        }
+                    }
+
+                    if ($isCurrent && $end) {
                         $validator->errors()->add(
                             "experiences.$index.end_date",
-                            __('End date must be after or equal to start date')
+                            __('End date must be empty for current job')
                         );
                     }
-                }
 
-                // Current job → end_date must be null
-                if (!empty($exp['is_current']) && !empty($end)) {
-                    $validator->errors()->add(
-                        "experiences.$index.end_date",
-                        __('End date must be empty for current job')
-                    );
+                    if (empty($exp['details'])) {
+                        $validator->errors()->add(
+                            "experiences.$index.details",
+                            __('At least one valid description is required')
+                        );
+                    }
+
+                } catch (\Exception $e) {
+                    // ignore (handled by validation rules)
                 }
             }
         });
@@ -172,49 +185,30 @@ class UpdateResumeStep4Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | CUSTOM MESSAGES
+    | MESSAGES
     |--------------------------------------------------------------------------
     */
     public function messages(): array
     {
         return [
             'experiences.required' => __('Experience details are required'),
-            'experiences.array'    => __('Experience must be a valid array'),
             'experiences.min'      => __('At least one experience is required'),
 
-            'experiences.*.id.integer' => __('Invalid experience ID'),
-            'experiences.*.id.exists'  => __('Selected experience does not exist'),
+            'experiences.*.id.exists' => __('Experience does not belong to this resume'),
 
             'experiences.*.designation.required' => __('Designation is required'),
-            'experiences.*.designation.string'   => __('Designation must be a valid string'),
-            'experiences.*.designation.max'      => __('Designation must not exceed 255 characters'),
-
-            'experiences.*.company.required' => __('Company name is required'),
-            'experiences.*.company.string'   => __('Company must be a valid string'),
-            'experiences.*.company.max'      => __('Company must not exceed 255 characters'),
-
-            'experiences.*.location.string' => __('Location must be a valid string'),
-            'experiences.*.location.max'    => __('Location must not exceed 255 characters'),
+            'experiences.*.company.required'     => __('Company name is required'),
 
             'experiences.*.start_date.required' => __('Start date is required'),
-            'experiences.*.start_date.date'     => __('Start date must be a valid date'),
             'experiences.*.start_date.before_or_equal' => __('Start date cannot be in the future'),
 
             'experiences.*.end_date.date' => __('End date must be a valid date'),
 
-            'experiences.*.is_current.required' => __('Current job status is required'),
-            'experiences.*.is_current.boolean'  => __('Current job must be true or false'),
+            'experiences.*.details.min' => __('At least one experience detail is required'),
 
-            'experiences.*.details.required' => __('Experience details are required'),
-            'experiences.*.details.array'    => __('Experience details must be a valid array'),
-            'experiences.*.details.min'      => __('At least one experience detail is required'),
-
-            'experiences.*.details.*.id.integer' => __('Invalid detail ID'),
-            'experiences.*.details.*.id.exists'  => __('Selected detail does not exist'),
+            'experiences.*.details.*.id.exists' => __('Invalid detail record'),
 
             'experiences.*.details.*.description.required' => __('Description is required'),
-            'experiences.*.details.*.description.string'   => __('Description must be a valid string'),
-            'experiences.*.details.*.description.max'      => __('Description must not exceed 1000 characters'),
         ];
     }
 
@@ -225,6 +219,8 @@ class UpdateResumeStep4Request extends FormRequest
     */
     private function clean($value)
     {
-        return $value ? trim(preg_replace('/\s+/', ' ', $value)) : null;
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
     }
 }

@@ -22,7 +22,7 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 1 - BASIC INFO
+    | STEP 1 - CREATE
     |--------------------------------------------------------------------------
     */
     public function storeStep1(array $data): Resume
@@ -30,7 +30,7 @@ class ResumeService
         try {
             return DB::transaction(function () use ($data) {
 
-                return $this->resumeRepository->create([
+                $resume = $this->resumeRepository->create([
                     'name'         => $data['name'],
                     'title'        => $data['title'] ?? null,
                     'summary'      => $data['summary'] ?? null,
@@ -38,26 +38,27 @@ class ResumeService
                     'phone'        => $data['phone'] ?? null,
                     'email'        => $data['email'] ?? null,
                     'status'       => $data['status'] ?? Resume::STATUS_ACTIVE,
-
-                    'created_by'   => $data['created_by'] ?? Auth::id(),
-
+                    'created_by'   => Auth::id(),
                     'current_step' => 1,
-                    'is_completed' => 0,
+                    'is_completed' => false,
                 ]);
 
+                Log::info('Step1 Success', ['resume_id' => $resume->id]);
+
+                return $resume;
             });
         } catch (\Throwable $e) {
-            Log::error('Step1 Store Failed', ['error' => $e->getMessage()]);
+            Log::error('Step1 Failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 2 - EDUCATION
+    | STEP 2
     |--------------------------------------------------------------------------
     */
-    public function storeStep2($resumeId, array $data): bool
+    public function storeStep2(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
@@ -66,40 +67,28 @@ class ResumeService
 
                 $educations = $data['educations'] ?? [];
 
-                if (!is_array($educations) || empty($educations)) {
-                    Log::warning('Step2 Empty Education', ['resume_id' => $resumeId]);
-                    return false;
+                if (!empty($educations)) {
+                    $this->educationRepository->bulkInsert($educations, $resume->id);
                 }
 
-                $result = $this->educationRepository->bulkInsert(
-                    $educations,
-                    $resume->id
-                );
+                $resume->update([
+                    'current_step' => max($resume->current_step, 2)
+                ]);
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => max($resume->current_step, 2)
-                    ]);
-                }
-
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
-            Log::error('Step2 Store Failed', [
-                'resume_id' => $resumeId,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Step2 Failed', ['resume_id' => $resumeId]);
             throw $e;
         }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 3 - SKILLS
+    | STEP 3
     |--------------------------------------------------------------------------
     */
-    public function storeStep3($resumeId, array $data): bool
+    public function storeStep3(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
@@ -108,40 +97,28 @@ class ResumeService
 
                 $skills = $data['skills'] ?? [];
 
-                if (!is_array($skills) || empty($skills)) {
-                    Log::warning('Step3 Empty Skills', ['resume_id' => $resumeId]);
-                    return false;
+                if (!empty($skills)) {
+                    $this->technicalSkillRepository->bulkInsert($skills, $resume->id);
                 }
 
-                $result = $this->technicalSkillRepository->bulkInsert(
-                    $skills,
-                    $resume->id
-                );
+                $resume->update([
+                    'current_step' => max($resume->current_step, 3)
+                ]);
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => max($resume->current_step, 3)
-                    ]);
-                }
-
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
-            Log::error('Step3 Store Failed', [
-                'resume_id' => $resumeId,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Step3 Failed', ['resume_id' => $resumeId]);
             throw $e;
         }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | STEP 4 - EXPERIENCE
+    | STEP 4
     |--------------------------------------------------------------------------
     */
-    public function storeStep4($resumeId, array $data): bool
+    public function storeStep4(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
@@ -150,31 +127,19 @@ class ResumeService
 
                 $experiences = $data['experiences'] ?? [];
 
-                if (!is_array($experiences) || empty($experiences)) {
-                    Log::warning('Step4 Empty Experience', ['resume_id' => $resumeId]);
-                    return false;
+                if (!empty($experiences)) {
+                    $this->experienceRepository->bulkInsert($experiences, $resume->id);
                 }
 
-                $result = $this->experienceRepository->bulkInsert(
-                    $experiences,
-                    $resume->id
-                );
+                $resume->update([
+                    'current_step' => 4,
+                    'is_completed' => true
+                ]);
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => 4,
-                        'is_completed' => 1
-                    ]);
-                }
-
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
-            Log::error('Step4 Store Failed', [
-                'resume_id' => $resumeId,
-                'error' => $e->getMessage()
-            ]);
+            Log::error('Step4 Failed', ['resume_id' => $resumeId]);
             throw $e;
         }
     }
@@ -184,23 +149,14 @@ class ResumeService
     | UPDATE STEP 1
     |--------------------------------------------------------------------------
     */
-    public function updateStep1($resumeId, array $data): Resume
+    public function updateStep1(int $resumeId, array $data): Resume
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
 
                 $resume = $this->validateResume($resumeId);
 
-                return $this->resumeRepository->update($resume->id, [
-                    'name'     => $data['name'] ?? $resume->name,
-                    'title'    => $data['title'] ?? $resume->title,
-                    'summary'  => $data['summary'] ?? $resume->summary,
-                    'location' => $data['location'] ?? $resume->location,
-                    'phone'    => $data['phone'] ?? $resume->phone,
-                    'email'    => $data['email'] ?? $resume->email,
-                    'status'   => $data['status'] ?? $resume->status,
-                ]);
-
+                return $this->resumeRepository->update($resume, $data);
             });
         } catch (\Throwable $e) {
             Log::error('Update Step1 Failed', ['resume_id' => $resumeId]);
@@ -213,7 +169,7 @@ class ResumeService
     | UPDATE STEP 2
     |--------------------------------------------------------------------------
     */
-    public function updateStep2($resumeId, array $data): bool
+    public function updateStep2(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
@@ -222,20 +178,13 @@ class ResumeService
 
                 $existing = $this->educationRepository->getByResume($resume->id);
 
-                $result = $this->educationRepository->sync(
+                $this->educationRepository->sync(
                     $existing,
                     $data['educations'] ?? [],
                     $resume->id
                 );
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => max($resume->current_step, 2)
-                    ]);
-                }
-
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
             Log::error('Update Step2 Failed', ['resume_id' => $resumeId]);
@@ -248,7 +197,7 @@ class ResumeService
     | UPDATE STEP 3
     |--------------------------------------------------------------------------
     */
-    public function updateStep3($resumeId, array $data): bool
+    public function updateStep3(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
@@ -257,20 +206,13 @@ class ResumeService
 
                 $existing = $this->technicalSkillRepository->getByResume($resume->id);
 
-                $result = $this->technicalSkillRepository->sync(
+                $this->technicalSkillRepository->sync(
                     $existing,
                     $data['skills'] ?? [],
                     $resume->id
                 );
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => max($resume->current_step, 3)
-                    ]);
-                }
-
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
             Log::error('Update Step3 Failed', ['resume_id' => $resumeId]);
@@ -283,35 +225,26 @@ class ResumeService
     | UPDATE STEP 4
     |--------------------------------------------------------------------------
     */
-    public function updateStep4($resumeId, array $data): bool
+    public function updateStep4(int $resumeId, array $data): bool
     {
         try {
             return DB::transaction(function () use ($resumeId, $data) {
 
                 $resume = $this->validateResume($resumeId);
 
-                $this->experienceRepository->deleteByResume($resume->id);
+                $existing = $this->experienceRepository->getByResume($resume->id);
 
-                $experiences = $data['experiences'] ?? [];
-
-                if (empty($experiences)) {
-                    return true;
-                }
-
-                $result = $this->experienceRepository->bulkInsert(
-                    $experiences,
+                $this->experienceRepository->sync(
+                    $existing,
+                    $data['experiences'] ?? [],
                     $resume->id
                 );
 
-                if ($result) {
-                    $resume->update([
-                        'current_step' => 4,
-                        'is_completed' => 1
-                    ]);
-                }
+                $resume->update([
+                    'is_completed' => true
+                ]);
 
-                return (bool) $result;
-
+                return true;
             });
         } catch (\Throwable $e) {
             Log::error('Update Step4 Failed', ['resume_id' => $resumeId]);
@@ -329,15 +262,18 @@ class ResumeService
         try {
             return DB::transaction(function () use ($resume) {
 
+                if ($resume->trashed()) {
+                    return false;
+                }
+
                 $this->educationRepository->deleteByResume($resume->id);
                 $this->technicalSkillRepository->deleteByResume($resume->id);
                 $this->experienceRepository->deleteByResume($resume->id);
 
-                return (bool) $this->resumeRepository->delete($resume);
-
+                return $this->resumeRepository->delete($resume);
             });
         } catch (\Throwable $e) {
-            Log::error('Delete Resume Failed', ['resume_id' => $resume->id]);
+            Log::error('Delete Failed', ['resume_id' => $resume->id]);
             throw $e;
         }
     }
@@ -347,7 +283,7 @@ class ResumeService
     | VALIDATION
     |--------------------------------------------------------------------------
     */
-    protected function validateResume($resumeId): Resume
+    protected function validateResume(int $resumeId): Resume
     {
         return Resume::where('id', $resumeId)
             ->where('created_by', Auth::id())

@@ -10,26 +10,11 @@ class Education extends Model
 {
     use SoftDeletes, UserTracking;
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONSTANTS
-    |--------------------------------------------------------------------------
-    */
-    const STATUS_ACTIVE = 'active';
-    const STATUS_INACTIVE = 'inactive';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
 
-    /*
-    |--------------------------------------------------------------------------
-    | TABLE
-    |--------------------------------------------------------------------------
-    */
     protected $table = 'educations';
 
-    /*
-    |--------------------------------------------------------------------------
-    | MASS ASSIGNMENT
-    |--------------------------------------------------------------------------
-    */
     protected $fillable = [
         'resume_id',
         'degree',
@@ -42,7 +27,16 @@ class Education extends Model
         'status',
         'created_by',
         'updated_by',
-        'deleted_by'
+        'deleted_by',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'end_date'   => 'date',
+    ];
+
+    protected $attributes = [
+        'status' => self::STATUS_ACTIVE,
     ];
 
     /*
@@ -57,7 +51,7 @@ class Education extends Model
 
     public function scopeLatestId($query)
     {
-        return $query->orderBy('id', 'desc');
+        return $query->latest('id');
     }
 
     /*
@@ -72,16 +66,42 @@ class Education extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS (OPTIONAL)
+    | ACCESSORS
     |--------------------------------------------------------------------------
     */
     public function getDegreeAttribute($value)
     {
-        return ucfirst($value);
+        return $this->formatText($value);
     }
 
     public function getInstitutionAttribute($value)
     {
-        return ucfirst($value);
+        return $this->formatText($value);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER (FIXED)
+    |--------------------------------------------------------------------------
+    */
+    private function formatText($value)
+    {
+        if (!$value) {
+            return $value;
+        }
+
+        return collect(preg_split('/\s+/', strtolower(trim($value))))
+            ->map(fn($word) => ucfirst($word))
+            ->implode(' ');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 }

@@ -82,7 +82,7 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE SINGLE
+    | DELETE SINGLE (SOFT DELETE SAFE)
     |--------------------------------------------------------------------------
     */
     public function delete($id): bool
@@ -100,44 +100,48 @@ class EducationRepository
         return $this->model
             ->where('resume_id', $resumeId)
             ->latest('id')
-            ->get() ?? collect();
+            ->get();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE BY RESUME
+    | DELETE BY RESUME (SOFT DELETE)
     |--------------------------------------------------------------------------
     */
     public function deleteByResume($resumeId): bool
     {
         $this->model
             ->where('resume_id', $resumeId)
-            ->delete();
+            ->delete(); // ✅ soft delete
 
         return true;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | BULK INSERT (SAFE + CLEAN + VALIDATION)
+    | BULK INSERT (SAFE + FILTERED)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $educations, $resumeId): bool
     {
         try {
+
             if (empty($educations)) {
                 return false;
             }
 
             $now = now();
             $userId = Auth::id();
-
             $data = [];
 
             foreach ($educations as $edu) {
 
-                // 🔥 skip empty rows (important for dynamic forms)
-                if (empty($edu['degree']) && empty($edu['institution'])) {
+                // ✅ skip empty rows
+                if (
+                    empty($edu['degree']) &&
+                    empty($edu['institution']) &&
+                    empty($edu['field'])
+                ) {
                     continue;
                 }
 
@@ -151,7 +155,6 @@ class EducationRepository
                     'start_date'  => $edu['start_date'] ?? null,
                     'end_date'    => $edu['end_date'] ?? null,
                     'status'      => $edu['status'] ?? Education::STATUS_ACTIVE,
-
                     'created_by'  => $userId,
                     'updated_by'  => $userId,
                     'created_at'  => $now,
@@ -163,7 +166,14 @@ class EducationRepository
                 return false;
             }
 
-            return $this->model->insert($data);
+            $this->model->insert($data);
+
+            Log::info('Education Bulk Insert Success', [
+                'resume_id' => $resumeId,
+                'count'     => count($data)
+            ]);
+
+            return true;
 
         } catch (\Throwable $e) {
 
@@ -178,12 +188,13 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | SYNC (FINAL SAFE + LOGGING VERSION)
+    | SYNC (PRODUCTION SAFE)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool
     {
         try {
+
             $userId = Auth::id();
 
             $existingIds = $existing->pluck('id')->toArray();
@@ -191,7 +202,7 @@ class EducationRepository
 
             /*
             |--------------------------------------------------------------------------
-            | DELETE REMOVED RECORDS
+            | DELETE REMOVED (SOFT)
             |--------------------------------------------------------------------------
             */
             $deleteIds = array_diff($existingIds, $incomingIds);
@@ -205,12 +216,17 @@ class EducationRepository
 
             /*
             |--------------------------------------------------------------------------
-            | UPDATE / CREATE
+            | UPSERT
             |--------------------------------------------------------------------------
             */
             foreach ($incoming as $edu) {
 
-                if (empty($edu['degree']) && empty($edu['institution'])) {
+                // ✅ skip empty
+                if (
+                    empty($edu['degree']) &&
+                    empty($edu['institution']) &&
+                    empty($edu['field'])
+                ) {
                     continue;
                 }
 
@@ -228,6 +244,7 @@ class EducationRepository
 
                 if (!empty($edu['id'])) {
 
+                    // ✅ SAFE UPDATE
                     $this->model
                         ->where('id', $edu['id'])
                         ->where('resume_id', $resumeId)
@@ -235,11 +252,16 @@ class EducationRepository
 
                 } else {
 
+                    // ✅ CREATE
                     $payload['created_by'] = $userId;
 
                     $this->model->create($payload);
                 }
             }
+
+            Log::info('Education Sync Success', [
+                'resume_id' => $resumeId
+            ]);
 
             return true;
 

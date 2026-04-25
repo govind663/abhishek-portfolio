@@ -5,31 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\UserTracking;
+use Illuminate\Support\HtmlString;
 
 class TechnicalSkill extends Model
 {
     use SoftDeletes, UserTracking;
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONSTANTS
-    |--------------------------------------------------------------------------
-    */
-    const STATUS_ACTIVE = 'active';
-    const STATUS_INACTIVE = 'inactive';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
 
-    /*
-    |--------------------------------------------------------------------------
-    | TABLE
-    |--------------------------------------------------------------------------
-    */
     protected $table = 'technical_skills';
 
-    /*
-    |--------------------------------------------------------------------------
-    | MASS ASSIGNMENT
-    |--------------------------------------------------------------------------
-    */
     protected $fillable = [
         'resume_id',
         'category',
@@ -40,18 +26,34 @@ class TechnicalSkill extends Model
         'status',
         'created_by',
         'updated_by',
-        'deleted_by'
+        'deleted_by',
+    ];
+
+    protected $casts = [
+        'icon_path'    => 'string',
+        'icon_viewbox' => 'string',
+        'icon_fill'    => 'string',
+    ];
+
+    protected $attributes = [
+        'status'       => self::STATUS_ACTIVE,
+        'icon_viewbox' => '0 0 24 24',
+        'icon_fill'    => '#000',
     ];
 
     /*
     |--------------------------------------------------------------------------
-    | CASTS
+    | MODEL EVENTS (FIXED)
     |--------------------------------------------------------------------------
     */
-    protected $casts = [
-        // future-ready (agar multiple icons ya config store karo)
-        'icon_path' => 'string',
-    ];
+    protected static function booted()
+    {
+        // ✅ creating + updating both cover
+        static::saving(function ($model) {
+            $model->icon_viewbox = $model->icon_viewbox ?: '0 0 24 24';
+            $model->icon_fill    = $model->icon_fill ?: '#000';
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +67,7 @@ class TechnicalSkill extends Model
 
     public function scopeLatestId($query)
     {
-        return $query->orderBy('id', 'desc');
+        return $query->latest('id');
     }
 
     /*
@@ -80,27 +82,63 @@ class TechnicalSkill extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS (SVG RENDER HELPER)
+    | ACCESSOR: SVG ICON (SECURE + SAFE)
     |--------------------------------------------------------------------------
     */
-    public function getSvgIconAttribute()
+    public function getSvgIconAttribute(): ?HtmlString
     {
-        if (!$this->icon_path) {
-            return null;
+        if (empty($this->icon_path)) {
+            return null; // or fallback SVG return kar sakte ho
         }
 
-        return '<svg width="18" height="18" fill="' . $this->icon_fill . '" viewBox="' . $this->icon_viewbox . '">
-                    <path d="' . $this->icon_path . '"></path>
-                </svg>';
+        return new HtmlString(
+            sprintf(
+                '<svg width="18" height="18" fill="%s" viewBox="%s"><path d="%s"></path></svg>',
+                e($this->icon_fill),
+                e($this->icon_viewbox),
+                e($this->icon_path)
+            )
+        );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS (OPTIONAL)
+    | ACCESSORS (IMPROVED)
     |--------------------------------------------------------------------------
     */
     public function getSkillNameAttribute($value)
     {
-        return ucfirst($value);
+        return $this->formatText($value);
+    }
+
+    public function getCategoryAttribute($value)
+    {
+        return $this->formatText($value);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER
+    |--------------------------------------------------------------------------
+    */
+    private function formatText($value)
+    {
+        if (!$value) {
+            return $value;
+        }
+
+        return collect(preg_split('/\s+/', strtolower(trim($value))))
+            ->map(fn($word) => ucfirst($word))
+            ->implode(' ');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 }

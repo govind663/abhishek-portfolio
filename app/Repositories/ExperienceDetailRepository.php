@@ -5,6 +5,8 @@ namespace App\Repositories;
 use App\Models\ExperienceDetail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ExperienceDetailRepository
 {
@@ -14,7 +16,7 @@ class ExperienceDetailRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL (PAGINATED)
+    | GET ALL
     |--------------------------------------------------------------------------
     */
     public function all($perPage = 10)
@@ -41,10 +43,21 @@ class ExperienceDetailRepository
     */
     public function create(array $data): ExperienceDetail
     {
-        $data['created_by'] = Auth::id();
-        $data['updated_by'] = Auth::id();
+        try {
+            $data['created_by'] = Auth::id();
+            $data['updated_by'] = Auth::id();
 
-        return $this->model->create($data);
+            return $this->model->create($data);
+
+        } catch (\Throwable $e) {
+
+            Log::error('ExperienceDetail Create Failed', [
+                'payload' => $data,
+                'error'   => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
@@ -54,13 +67,28 @@ class ExperienceDetailRepository
     */
     public function update($id, array $data): ExperienceDetail
     {
-        $detail = $this->find($id);
+        try {
+            $detail = $this->find($id);
 
-        $data['updated_by'] = Auth::id();
+            $data['updated_by'] = Auth::id();
 
-        $detail->update($data);
+            // ✅ null filtering (important)
+            $data = array_filter($data, fn($v) => $v !== null);
 
-        return $detail->fresh();
+            $detail->update($data);
+
+            return $detail->refresh();
+
+        } catch (\Throwable $e) {
+
+            Log::error('ExperienceDetail Update Failed', [
+                'id'      => $id,
+                'payload' => $data,
+                'error'   => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
@@ -70,12 +98,23 @@ class ExperienceDetailRepository
     */
     public function delete($id): bool
     {
-        return $this->find($id)->delete();
+        try {
+            return (bool) $this->find($id)->delete();
+
+        } catch (\Throwable $e) {
+
+            Log::error('ExperienceDetail Delete Failed', [
+                'id'    => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | GET BY EXPERIENCE (NEVER NULL)
+    | GET BY EXPERIENCE
     |--------------------------------------------------------------------------
     */
     public function getByExperience($experienceId): Collection
@@ -83,116 +122,177 @@ class ExperienceDetailRepository
         return $this->model
             ->where('experience_id', $experienceId)
             ->latest('id')
-            ->get() ?? collect();
+            ->get();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE BY EXPERIENCE
+    | DELETE BY EXPERIENCE (SOFT DELETE SAFE)
     |--------------------------------------------------------------------------
     */
     public function deleteByExperience($experienceId): bool
     {
-        $this->model
-            ->where('experience_id', $experienceId)
-            ->delete();
+        try {
+            $this->model
+                ->where('experience_id', $experienceId)
+                ->delete();
 
-        return true;
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Delete Details By Experience Failed', [
+                'experience_id' => $experienceId,
+                'error' => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | BULK INSERT (SMART FILTER + SAFE)
+    | BULK INSERT (SAFE + FILTER + LOGGING)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $details, $experienceId): bool
     {
-        if (empty($details)) return false;
+        try {
+            if (empty($details)) {
+                Log::warning('Detail Bulk Insert Skipped - Empty', [
+                    'experience_id' => $experienceId
+                ]);
+                return false;
+            }
 
-        $now = now();
-        $userId = Auth::id();
+            $now = now();
+            $userId = Auth::id();
 
-        $data = [];
+            $data = [];
 
-        foreach ($details as $detail) {
+            foreach ($details as $detail) {
 
-            // skip empty rows
-            if (empty($detail['description'])) continue;
+                if (empty($detail['description'])) continue;
 
-            $data[] = [
+                $data[] = [
+                    'experience_id' => $experienceId,
+                    'description'   => trim($detail['description']),
+                    'status'        => $detail['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+                    'created_by'    => $userId,
+                    'updated_by'    => $userId,
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
+                ];
+            }
+
+            if (empty($data)) {
+                Log::warning('Detail Bulk Insert Failed - All Empty', [
+                    'experience_id' => $experienceId
+                ]);
+                return false;
+            }
+
+            $this->model->insert($data);
+
+            Log::info('Detail Bulk Insert Success', [
                 'experience_id' => $experienceId,
-                'description'   => $detail['description'],
-                'status'        => $detail['status'] ?? ExperienceDetail::STATUS_ACTIVE,
-                'created_by'    => $userId,
-                'updated_by'    => $userId,
-                'created_at'    => $now,
-                'updated_at'    => $now,
-            ];
+                'count' => count($data)
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('ExperienceDetail Bulk Insert Failed', [
+                'experience_id' => $experienceId,
+                'payload'       => $details,
+                'error'         => $e->getMessage()
+            ]);
+
+            throw $e;
         }
-
-        if (empty($data)) return false;
-
-        return $this->model->insert($data);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FINAL SYNC (ULTRA SAFE VERSION)
+    | SYNC (FINAL SAFE VERSION)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $newData, $experienceId): bool
     {
-        $userId = Auth::id();
+        try {
+            DB::transaction(function () use ($existing, $newData, $experienceId) {
 
-        $existingIds = $existing->pluck('id')->toArray();
-        $newIds = collect($newData)->pluck('id')->filter()->toArray();
+                $userId = Auth::id();
+                $now = now();
 
-        /*
-        |--------------------------------------------------------------------------
-        | DELETE REMOVED
-        |--------------------------------------------------------------------------
-        */
-        $deleteIds = array_diff($existingIds, $newIds);
+                $existingIds = $existing->pluck('id')->toArray();
+                $newIds = collect($newData)->pluck('id')->filter()->toArray();
 
-        if (!empty($deleteIds)) {
-            $this->model
-                ->whereIn('id', $deleteIds)
-                ->where('experience_id', $experienceId)
-                ->delete();
+                /*
+                |--------------------------------------------------------------------------
+                | DELETE REMOVED
+                |--------------------------------------------------------------------------
+                */
+                $deleteIds = array_diff($existingIds, $newIds);
+
+                if (!empty($deleteIds)) {
+                    $this->model
+                        ->whereIn('id', $deleteIds)
+                        ->where('experience_id', $experienceId)
+                        ->delete();
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | UPDATE / CREATE
+                |--------------------------------------------------------------------------
+                */
+                foreach ($newData as $item) {
+
+                    if (empty($item['description'])) continue;
+
+                    if (!empty($item['id'])) {
+
+                        $this->model
+                            ->where('id', $item['id'])
+                            ->where('experience_id', $experienceId)
+                            ->update([
+                                'description' => trim($item['description']),
+                                'status'      => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+                                'updated_by'  => $userId,
+                                'updated_at'  => $now,
+                            ]);
+
+                    } else {
+
+                        $this->model->create([
+                            'experience_id' => $experienceId,
+                            'description'   => trim($item['description']),
+                            'status'        => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
+                            'created_by'    => $userId,
+                            'updated_by'    => $userId,
+                        ]);
+                    }
+                }
+            });
+
+            Log::info('ExperienceDetail Sync Success', [
+                'experience_id' => $experienceId,
+                'count' => count($newData)
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('ExperienceDetail Sync Failed', [
+                'experience_id' => $experienceId,
+                'payload'       => $newData,
+                'error'         => $e->getMessage()
+            ]);
+
+            throw $e;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE + CREATE
-        |--------------------------------------------------------------------------
-        */
-        foreach ($newData as $item) {
-
-            if (empty($item['description'])) continue;
-
-            if (!empty($item['id'])) {
-
-                $this->model
-                    ->where('id', $item['id'])
-                    ->where('experience_id', $experienceId)
-                    ->update([
-                        'description' => $item['description'],
-                        'status'      => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
-                        'updated_by'  => $userId,
-                    ]);
-
-            } else {
-
-                $this->model->create([
-                    'experience_id' => $experienceId,
-                    'description'   => $item['description'],
-                    'status'        => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,
-                    'created_by'    => $userId,
-                    'updated_by'    => $userId,
-                ]);
-            }
-        }
-
-        return true;
     }
 }

@@ -76,9 +76,10 @@
         </ul>
 
         {{-- FORM --}}
-        <form id="resumeForm">
+        <form id="resumeForm" enctype="multipart/form-data">
             @csrf
 
+            {{-- IMPORTANT --}}
             <input type="hidden" id="resume_id" value="{{ $resume->id }}">
 
             <div class="tab-content">
@@ -147,20 +148,70 @@
 <script src="{{ asset('backend/assets/scripts/resume-wizard.js') }}"></script>
 
 <script>
-    // 🔥 IMPORTANT (EDIT MODE)
-    window.resumeRoutes = {
+const resumeId = "{{ $resume->id }}";
 
-        step1: "{{ route('resume.update.step1', $resume->id) }}",
-        step2: "{{ route('resume.update.step2', $resume->id) }}",
-        step3: "{{ route('resume.update.step3', $resume->id) }}",
-        step4: "{{ route('resume.update.step4', $resume->id) }}",
+/*
+|--------------------------------------------------------------------------
+| ROUTES (EDIT MODE - FINAL FIX)
+|--------------------------------------------------------------------------
+*/
+window.resumeRoutes = {
 
-        draft: "{{ route('resume.draft', $resume->id) }}",
+    // =========================
+    // UPDATE FLOW
+    // =========================
+    step1: "{{ route('resume.update.step1', ['id' => '__ID__']) }}",
+    step2: "{{ route('resume.update.step2', ['id' => '__ID__']) }}",
+    step3: "{{ route('resume.update.step3', ['id' => '__ID__']) }}",
+    step4: "{{ route('resume.update.step4', ['id' => '__ID__']) }}",
 
-        index: "{{ route('resume.index') }}"
-    };
+    // =========================
+    // DRAFT (FIXED)
+    // =========================
+    draft: "{{ route('resume.draft', ['id' => '__ID__']) }}",
+    getDraft: "{{ route('resume.draft.get', ['id' => '__ID__']) }}",
 
-    // 🔥 FORCE SET resumeId
-    localStorage.setItem('resume_id', "{{ $resume->id }}");
+    // =========================
+    index: "{{ route('resume.index') }}"
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| FORCE RESUME ID (CRITICAL)
+|--------------------------------------------------------------------------
+*/
+localStorage.setItem('resume_id', resumeId);
+
+
+/*
+|--------------------------------------------------------------------------
+| PREVENT DOUBLE CLICK (IMPROVED)
+|--------------------------------------------------------------------------
+*/
+$(document).on('click', '.nextBtn', function () {
+
+    let btn = $(this);
+
+    if (btn.data('loading')) return;
+
+    btn.data('loading', true);
+    btn.prop('disabled', true);
+
+    setTimeout(() => {
+        btn.data('loading', false);
+        btn.prop('disabled', false);
+    }, 1500);
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| EXTRA SAFETY (FORM SUBMIT LOCK)
+|--------------------------------------------------------------------------
+*/
+$('#resumeForm').on('submit', function () {
+    $('.nextBtn').prop('disabled', true);
+});
 </script>
 @endpush

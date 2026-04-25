@@ -14,7 +14,7 @@ class UpdateResumeStep1Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PRE-PROCESS INPUT (CLEAN DATA)
+    | PRE-PROCESS INPUT (CLEAN + NORMALIZE)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
@@ -23,10 +23,10 @@ class UpdateResumeStep1Request extends FormRequest
             'name'     => $this->clean($this->name),
             'title'    => $this->clean($this->title),
             'email'    => strtolower(trim((string) $this->email)),
-            'phone'    => trim((string) $this->phone),
+            'phone'    => $this->normalizeIndianPhone($this->phone),
             'location' => $this->clean($this->location),
             'summary'  => trim((string) $this->summary),
-            'status'   => trim((string) $this->status),
+            'status'   => strtolower(trim((string) $this->status)),
         ]);
     }
 
@@ -37,58 +37,37 @@ class UpdateResumeStep1Request extends FormRequest
     */
     public function rules(): array
     {
-        $resumeId = optional($this->route('resume'))->id;
+        // 🔥 FIX: route('id') use karo
+        $resumeId = $this->route('id');
 
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'name' => ['required', 'string', 'max:255'],
 
-            'title' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'title' => ['required', 'string', 'max:255'],
 
-            'summary' => [
-                'required',
-                'string',
-                'min:10',
-                'max:2000'
-            ],
-
-            'phone' => [
-                'required',
-                'string',
-                'min:8',
-                'max:20',
-                'regex:/^[0-9+\-\s()]+$/',
-                Rule::unique('resumes', 'phone')
-                    ->ignore($resumeId)
-                    ->whereNull('deleted_at'),
-            ],
+            'summary' => ['required', 'string', 'min:10', 'max:2000'],
 
             'email' => [
                 'required',
-                'email:rfc,dns',
+                'email:rfc',
                 'max:255',
                 Rule::unique('resumes', 'email')
                     ->ignore($resumeId)
                     ->whereNull('deleted_at'),
             ],
 
-            'location' => [
+            'phone' => [
                 'required',
-                'string',
-                'max:255'
+                // 🔥 INDIA MOBILE VALIDATION
+                'regex:/^(\+91|91)?[6-9]\d{9}$/',
+                Rule::unique('resumes', 'phone')
+                    ->ignore($resumeId)
+                    ->whereNull('deleted_at'),
             ],
 
-            'status' => [
-                'required',
-                'in:active,inactive'
-            ]
+            'location' => ['required', 'string', 'max:255'],
+
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
     }
 
@@ -100,42 +79,39 @@ class UpdateResumeStep1Request extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => __('Name is required'),
-            'name.max'      => __('Name must not exceed 255 characters'),
-
-            'title.required' => __('Title is required'),
-            'title.max'      => __('Title must not exceed 255 characters'),
-
-            'summary.required' => __('Summary is required'),
-            'summary.min'      => __('Summary must be at least 10 characters'),
-            'summary.max'      => __('Summary must not exceed 2000 characters'),
-
-            'email.required' => __('Email is required'),
-            'email.email'    => __('Please enter a valid email address'),
-            'email.max'      => __('Email must not exceed 255 characters'),
-            'email.unique'   => __('This email address is already associated with another resume'),
-
-            'phone.required' => __('Phone number is required'),
-            'phone.regex'    => __('Phone number format is invalid'),
-            'phone.min'      => __('Phone number must be at least 8 characters'),
-            'phone.max'      => __('Phone number must not exceed 20 characters'),
-            'phone.unique'   => __('This phone number is already associated with another resume'),
-
-            'location.required' => __('Location is required'),
-            'location.max'      => __('Location must not exceed 255 characters'),
-
-            'status.required' => __('Status is required'),
-            'status.in'       => __('Status must be either active or inactive'),
+            'phone.regex' => __('Enter valid Indian mobile number (10 digit starting 6-9)'),
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | HELPER FUNCTION (Clean Input)
+    | CLEAN TEXT
     |--------------------------------------------------------------------------
     */
     private function clean($value)
     {
-        return $value ? trim(preg_replace('/\s+/', ' ', (string) $value)) : null;
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE INDIAN PHONE
+    |--------------------------------------------------------------------------
+    */
+    private function normalizeIndianPhone($value)
+    {
+        if (!$value) return null;
+
+        // remove spaces, dash, brackets
+        $value = preg_replace('/[^0-9]/', '', $value);
+
+        // remove country code if present
+        if (str_starts_with($value, '91') && strlen($value) > 10) {
+            $value = substr($value, -10);
+        }
+
+        return $value;
     }
 }

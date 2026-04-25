@@ -15,8 +15,8 @@ class Resume extends Model
     | CONSTANTS
     |--------------------------------------------------------------------------
     */
-    const STATUS_ACTIVE = 'active';
-    const STATUS_INACTIVE = 'inactive';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
 
     /*
     |--------------------------------------------------------------------------
@@ -42,8 +42,61 @@ class Resume extends Model
         'is_completed',
         'created_by',
         'updated_by',
-        'deleted_by'
+        'deleted_by',
     ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | CASTS
+    |--------------------------------------------------------------------------
+    */
+    protected $casts = [
+        'is_completed' => 'boolean',
+        'current_step' => 'integer',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | DEFAULT VALUES
+    |--------------------------------------------------------------------------
+    */
+    protected $attributes = [
+        'status' => self::STATUS_ACTIVE,
+        'current_step' => 1,
+        'is_completed' => false,
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | BOOT (🔥 CASCADE + RESTORE FIX)
+    |--------------------------------------------------------------------------
+    */
+    protected static function booted()
+    {
+        // ✅ Soft delete cascade
+        static::deleting(function ($resume) {
+
+            $resume->educations()->delete();
+            $resume->skills()->delete();
+
+            $resume->experiences()->each(function ($exp) {
+                $exp->details()->delete();
+                $exp->delete();
+            });
+        });
+
+        // ✅ Restore cascade (PRO LEVEL FIX)
+        static::restoring(function ($resume) {
+
+            $resume->educations()->withTrashed()->restore();
+            $resume->skills()->withTrashed()->restore();
+
+            $resume->experiences()->withTrashed()->each(function ($exp) {
+                $exp->restore();
+                $exp->details()->withTrashed()->restore();
+            });
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -57,7 +110,7 @@ class Resume extends Model
 
     public function scopeLatestId($query)
     {
-        return $query->orderBy('id', 'desc');
+        return $query->latest('id');
     }
 
     /*
@@ -68,27 +121,49 @@ class Resume extends Model
 
     public function educations()
     {
-        return $this->hasMany(Education::class);
+        return $this->hasMany(Education::class)->latest('id');
     }
 
     public function skills()
     {
-        return $this->hasMany(TechnicalSkill::class);
+        return $this->hasMany(TechnicalSkill::class)->latest('id');
     }
 
     public function experiences()
     {
-        return $this->hasMany(Experience::class);
+        return $this->hasMany(Experience::class)->latest('id');
     }
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS (OPTIONAL)
+    | ACCESSORS (SAFE + CLEAN)
     |--------------------------------------------------------------------------
     */
 
     public function getNameAttribute($value)
     {
-        return ucfirst($value);
+        if (!$value) {
+            return $value;
+        }
+
+        return collect(preg_split('/\s+/', strtolower(trim($value))))
+            ->map(fn($word) => ucfirst($word))
+            ->implode(' ');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    public function isCompleted(): bool
+    {
+        return (bool) $this->is_completed;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
     }
 }

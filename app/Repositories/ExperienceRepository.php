@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Experience;
+use App\Models\ExperienceDetail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class ExperienceRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL (PAGINATED)
+    | GET ALL
     |--------------------------------------------------------------------------
     */
     public function all($perPage = 10)
@@ -37,7 +38,9 @@ class ExperienceRepository
     */
     public function find($id)
     {
-        return $this->model->with('details')->findOrFail($id);
+        return $this->model
+            ->with('details')
+            ->findOrFail($id);
     }
 
     /*
@@ -85,19 +88,20 @@ class ExperienceRepository
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE SINGLE
+    | DELETE SINGLE (SOFT DELETE SAFE)
     |--------------------------------------------------------------------------
     */
-    public function delete($id)
+    public function delete($id): bool
     {
-        $experience = $this->find($id);
+        return DB::transaction(function () use ($id) {
 
-        DB::transaction(function () use ($experience) {
+            $experience = $this->find($id);
+
+            // ✅ child first
             $experience->details()->delete();
-            $experience->delete();
-        });
 
-        return true;
+            return $experience->delete();
+        });
     }
 
     /*
@@ -111,17 +115,17 @@ class ExperienceRepository
             ->where('resume_id', $resumeId)
             ->with('details')
             ->latest('id')
-            ->get() ?? collect();
+            ->get();
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE BY RESUME
+    | DELETE BY RESUME (SOFT DELETE SAFE)
     |--------------------------------------------------------------------------
     */
     public function deleteByResume($resumeId): bool
     {
-        DB::transaction(function () use ($resumeId) {
+        return DB::transaction(function () use ($resumeId) {
 
             $experiences = $this->getByResume($resumeId);
 
@@ -129,19 +133,20 @@ class ExperienceRepository
                 $experience->details()->delete();
                 $experience->delete();
             }
-        });
 
-        return true;
+            return true;
+        });
     }
 
     /*
     |--------------------------------------------------------------------------
-    | BULK INSERT (TRANSACTION + LOGGING SAFE)
+    | BULK INSERT (SAFE + FILTERED)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $experiences, $resumeId): bool
     {
         try {
+
             if (empty($experiences)) {
                 return false;
             }
@@ -149,10 +154,11 @@ class ExperienceRepository
             DB::transaction(function () use ($experiences, $resumeId) {
 
                 $userId = Auth::id();
+                $now = now();
 
                 foreach ($experiences as $exp) {
 
-                    // skip empty rows
+                    // ✅ skip empty
                     if (empty($exp['designation']) && empty($exp['company'])) {
                         continue;
                     }
@@ -164,31 +170,22 @@ class ExperienceRepository
                         'location'    => $exp['location'] ?? null,
                         'start_date'  => $exp['start_date'] ?? null,
                         'end_date'    => $exp['end_date'] ?? null,
-                        'is_current'  => $exp['is_current'] ?? false,
+                        'is_current'  => !empty($exp['is_current']),
                         'status'      => $exp['status'] ?? Experience::STATUS_ACTIVE,
                         'created_by'  => $userId,
                         'updated_by'  => $userId,
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
                     ]);
 
-                    // insert details
-                    if (!empty($exp['details'])) {
-
-                        $details = array_map(function ($detail) use ($experience, $userId) {
-                            return [
-                                'experience_id' => $experience->id,
-                                'description'   => $detail['description'] ?? null,
-                                'status'        => $detail['status'] ?? Experience::STATUS_ACTIVE,
-                                'created_by'    => $userId,
-                                'updated_by'    => $userId,
-                                'created_at'    => now(),
-                                'updated_at'    => now(),
-                            ];
-                        }, $exp['details']);
-
-                        $experience->details()->insert($details);
-                    }
+                    // ✅ details insert
+                    $this->insertDetails($experience->id, $exp['details'] ?? [], $userId, $now);
                 }
             });
+
+            Log::info('Experience Bulk Insert Success', [
+                'resume_id' => $resumeId
+            ]);
 
             return true;
 
@@ -205,20 +202,26 @@ class ExperienceRepository
 
     /*
     |--------------------------------------------------------------------------
-    | FINAL SYNC (TRANSACTION + SAFE + LOGGING)
+    | SYNC (FINAL PRODUCTION SAFE)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool
     {
         try {
+
             DB::transaction(function () use ($existing, $incoming, $resumeId) {
 
                 $userId = Auth::id();
+                $now = now();
 
                 $existingIds = $existing->pluck('id')->toArray();
                 $incomingIds = collect($incoming)->pluck('id')->filter()->toArray();
 
-                // DELETE removed
+                /*
+                |--------------------------------------------------------------------------
+                | DELETE REMOVED
+                |--------------------------------------------------------------------------
+                */
                 $deleteIds = array_diff($existingIds, $incomingIds);
 
                 if (!empty($deleteIds)) {
@@ -232,6 +235,11 @@ class ExperienceRepository
                         });
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | UPSERT
+                |--------------------------------------------------------------------------
+                */
                 foreach ($incoming as $exp) {
 
                     if (empty($exp['designation']) && empty($exp['company'])) {
@@ -245,8 +253,9 @@ class ExperienceRepository
                         'location'    => $exp['location'] ?? null,
                         'start_date'  => $exp['start_date'] ?? null,
                         'end_date'    => $exp['end_date'] ?? null,
-                        'is_current'  => $exp['is_current'] ?? false,
+                        'is_current'  => !empty($exp['is_current']),
                         'updated_by'  => $userId,
+                        'updated_at'  => $now,
                     ];
 
                     if (!empty($exp['id'])) {
@@ -259,33 +268,26 @@ class ExperienceRepository
                         if (!$experience) continue;
 
                         $experience->update($payload);
+
+                        // ⚠️ IMPORTANT FIX: details reset
                         $experience->details()->delete();
 
                     } else {
 
                         $payload['created_by'] = $userId;
+                        $payload['created_at'] = $now;
+
                         $experience = $this->model->create($payload);
                     }
 
-                    // insert details
-                    if (!empty($exp['details'])) {
-
-                        $details = array_map(function ($detail) use ($experience, $userId) {
-                            return [
-                                'experience_id' => $experience->id,
-                                'description'   => $detail['description'] ?? null,
-                                'status'        => $detail['status'] ?? Experience::STATUS_ACTIVE,
-                                'created_by'    => $userId,
-                                'updated_by'    => $userId,
-                                'created_at'    => now(),
-                                'updated_at'    => now(),
-                            ];
-                        }, $exp['details']);
-
-                        $experience->details()->insert($details);
-                    }
+                    // ✅ insert fresh details
+                    $this->insertDetails($experience->id, $exp['details'] ?? [], $userId, $now);
                 }
             });
+
+            Log::info('Experience Sync Success', [
+                'resume_id' => $resumeId
+            ]);
 
             return true;
 
@@ -297,6 +299,37 @@ class ExperienceRepository
             ]);
 
             throw $e;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | INSERT DETAILS (REUSABLE 🔥)
+    |--------------------------------------------------------------------------
+    */
+    private function insertDetails($experienceId, array $details, $userId, $now): void
+    {
+        if (empty($details)) return;
+
+        $data = [];
+
+        foreach ($details as $detail) {
+
+            if (empty($detail['description'])) continue;
+
+            $data[] = [
+                'experience_id' => $experienceId,
+                'description'   => $detail['description'],
+                'status'        => $detail['status'] ?? Experience::STATUS_ACTIVE,
+                'created_by'    => $userId,
+                'updated_by'    => $userId,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ];
+        }
+
+        if (!empty($data)) {
+            ExperienceDetail::insert($data);
         }
     }
 

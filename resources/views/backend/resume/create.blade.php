@@ -149,7 +149,7 @@
                 </ul>
 
                 {{-- TAB CONTENT --}}
-                <form id="resumeForm" enctype="multipart/form-data" novalidate>
+                <form id="resumeForm" enctype="multipart/form-data">
                     @csrf
 
                     <div class="tab-content">
@@ -218,25 +218,57 @@
 
 
 @push('scripts')
-{{-- Sweetalert --}}
 <script src="{{ asset('backend/assets/sweetalert/sweetalert2.all.min.js') }}"></script>
-{{-- ✅ CUSTOM JS --}}
-<script src="{{ asset('backend/assets/scripts/resume-wizard.js') }}" ></script>
+<script src="{{ asset('backend/assets/scripts/resume-wizard.js') }}"></script>
 
 <script>
-    window.resumeRoutes = {
-        step1: "{{ route('resume.step1') }}",
+window.resumeRoutes = {
 
-        // ✅ DUMMY ID FIX
-        step2: "{{ route('resume.step2', ['id' => '__ID__']) }}",
-        step3: "{{ route('resume.step3', ['id' => '__ID__']) }}",
-        step4: "{{ route('resume.step4', ['id' => '__ID__']) }}",
+    step1: "{{ route('resume.create.step1') }}",
+    step2: "{{ route('resume.create.step2', ['id' => '__ID__']) }}",
+    step3: "{{ route('resume.create.step3', ['id' => '__ID__']) }}",
+    step4: "{{ route('resume.create.step4', ['id' => '__ID__']) }}",
 
-        // ✅ DRAFT ROUTE FIX
-        draft: "{{ route('resume.draft', ['id' => '__ID__']) }}",
+    draft: "{{ route('resume.draft', ['id' => '__ID__']) }}",
+    getDraft: "{{ route('resume.draft.get', ['id' => '__ID__']) }}",
 
-        index: "{{ route('resume.index') }}"
-    };
+    index: "{{ route('resume.index') }}"
+};
+
+
+// ===============================
+// CLEAN SESSION (FIXED)
+// ===============================
+if (window.location.pathname.includes('/resume/create')) {
+    localStorage.removeItem('resume_id');
+}
+
+
+// ===============================
+// PREVENT DOUBLE CLICK (IMPROVED)
+// ===============================
+$(document).on('click', '.nextBtn', function () {
+
+    let btn = $(this);
+
+    if (btn.data('loading')) return;
+
+    btn.data('loading', true);
+    btn.prop('disabled', true);
+
+    setTimeout(() => {
+        btn.data('loading', false);
+        btn.prop('disabled', false);
+    }, 1500);
+});
+
+
+// ===============================
+// EXTRA SUBMIT SAFETY
+// ===============================
+$('#resumeForm').on('submit', function () {
+    $('.nextBtn').prop('disabled', true);
+});
 </script>
 
 @endpush

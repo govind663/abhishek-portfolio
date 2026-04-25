@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Backend\Resume;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 
 class StoreResumeStep2Request extends FormRequest
 {
@@ -13,39 +14,40 @@ class StoreResumeStep2Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (CLEAN + SAFE NORMALIZATION)
+    | PREPARE DATA (CLEAN + FILTER EMPTY ROWS)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
-        $educationsInput = $this->educations ?? [];
+        $educationsInput = $this->input('educations', []);
 
         if (!is_array($educationsInput)) {
             $educationsInput = [];
         }
 
-        $educations = array_map(function ($edu) {
+        $educations = collect($educationsInput)
+            ->map(function ($edu) {
 
-            return [
-                'degree'      => $this->clean($edu['degree'] ?? null),
-                'field'       => $this->clean($edu['field'] ?? null),
-                'institution' => $this->clean($edu['institution'] ?? null),
-                'university'  => $this->clean($edu['university'] ?? null),
-                'location'    => $this->clean($edu['location'] ?? null),
+                return [
+                    'degree'      => $this->clean($edu['degree'] ?? null),
+                    'field'       => $this->clean($edu['field'] ?? null),
+                    'institution' => $this->clean($edu['institution'] ?? null),
+                    'university'  => $this->clean($edu['university'] ?? null),
+                    'location'    => $this->clean($edu['location'] ?? null),
 
-                'start_date'  => !empty($edu['start_date'])
-                    ? (string) $edu['start_date']
-                    : null,
-
-                'end_date'    => !empty($edu['end_date'])
-                    ? (string) $edu['end_date']
-                    : null,
-            ];
-
-        }, $educationsInput);
+                    'start_date'  => !empty($edu['start_date']) ? (string) $edu['start_date'] : null,
+                    'end_date'    => !empty($edu['end_date']) ? (string) $edu['end_date'] : null,
+                ];
+            })
+            // 🔥 REMOVE FULLY EMPTY ROWS (STRICT)
+            ->filter(function ($edu) {
+                return collect($edu)->filter()->isNotEmpty();
+            })
+            ->values()
+            ->toArray();
 
         $this->merge([
-            'educations' => array_values($educations)
+            'educations' => $educations,
         ]);
     }
 
@@ -59,72 +61,52 @@ class StoreResumeStep2Request extends FormRequest
         return [
             'educations' => ['required', 'array', 'min:1'],
 
-            'educations.*.degree' => [
-                'required',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.field' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.institution' => [
-                'required',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.university' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.location' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
+            'educations.*.degree' => ['required', 'string', 'max:255'],
+            'educations.*.field' => ['nullable', 'string', 'max:255'],
+            'educations.*.institution' => ['required', 'string', 'max:255'],
+            'educations.*.university' => ['nullable', 'string', 'max:255'],
+            'educations.*.location' => ['nullable', 'string', 'max:255'],
 
             'educations.*.start_date' => [
                 'required',
                 'date',
-                'before_or_equal:today'
+                'before_or_equal:today',
             ],
 
-            // ✔ SAFE (no wildcard dependency bug)
             'educations.*.end_date' => [
                 'nullable',
-                'date'
+                'date',
             ],
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CUSTOM VALIDATION (LOGICAL RULES)
+    | CUSTOM LOGIC VALIDATION (SAFE DATE CHECK)
     |--------------------------------------------------------------------------
     */
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
 
-            foreach ($this->educations ?? [] as $index => $edu) {
+            foreach ($this->input('educations', []) as $index => $edu) {
 
                 $start = $edu['start_date'] ?? null;
                 $end   = $edu['end_date'] ?? null;
 
-                // ✔ End date must be >= start date
-                if (!empty($start) && !empty($end)) {
+                if ($start && $end) {
+                    try {
+                        $startDate = Carbon::parse($start);
+                        $endDate   = Carbon::parse($end);
 
-                    if (strtotime($end) < strtotime($start)) {
-                        $validator->errors()->add(
-                            "educations.$index.end_date",
-                            __('End date must be after or equal to start date')
-                        );
+                        if ($endDate->lt($startDate)) {
+                            $validator->errors()->add(
+                                "educations.$index.end_date",
+                                __('End date must be after or equal to start date')
+                            );
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore (date rule already handles invalid formats)
                     }
                 }
             }
@@ -141,19 +123,10 @@ class StoreResumeStep2Request extends FormRequest
         return [
             'educations.required' => __('Education details are required'),
             'educations.array'    => __('Education must be a valid array'),
-            'educations.min'      => __('At least one education record is required'),
+            'educations.min'      => __('At least one valid education record is required'),
 
             'educations.*.degree.required' => __('Degree is required'),
-            'educations.*.degree.max'      => __('Degree must not exceed 255 characters'),
-
-            'educations.*.field.max' => __('Field must not exceed 255 characters'),
-
             'educations.*.institution.required' => __('Institution is required'),
-            'educations.*.institution.max'      => __('Institution must not exceed 255 characters'),
-
-            'educations.*.university.max' => __('University must not exceed 255 characters'),
-
-            'educations.*.location.max' => __('Location must not exceed 255 characters'),
 
             'educations.*.start_date.required' => __('Start date is required'),
             'educations.*.start_date.date'     => __('Start date must be a valid date'),

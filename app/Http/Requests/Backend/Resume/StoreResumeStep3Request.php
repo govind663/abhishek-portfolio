@@ -13,41 +13,51 @@ class StoreResumeStep3Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (Normalize & Clean Input)
+    | PREPARE DATA (CLEAN + FILTER EMPTY)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
-        if (!empty($this->skills) && is_array($this->skills)) {
+        $skillsInput = $this->skills ?? [];
 
-            $skills = array_map(function ($skill) {
+        if (!is_array($skillsInput)) {
+            $skillsInput = [];
+        }
+
+        $skills = collect($skillsInput)
+            ->map(function ($skill) {
+
                 return [
-                    'skill_name'   => isset($skill['skill_name'])
-                        ? trim((string) $skill['skill_name'])
-                        : null,
+                    'skill_name'   => $this->clean($skill['skill_name'] ?? null),
+                    'category'     => $this->clean($skill['category'] ?? null),
 
-                    'category'     => isset($skill['category'])
-                        ? trim((string) $skill['category'])
-                        : null,
-
+                    // ✅ SAFE TRIM (avoid null -> "")
                     'icon_path'    => isset($skill['icon_path'])
                         ? trim((string) $skill['icon_path'])
                         : null,
 
-                    'icon_viewbox' => isset($skill['icon_viewbox'])
-                        ? trim((string) $skill['icon_viewbox'])
-                        : null,
+                    // ✅ DEFAULT ONLY IF EMPTY
+                    'icon_viewbox' => !empty($skill['icon_viewbox'])
+                        ? $this->clean($skill['icon_viewbox'])
+                        : '0 0 24 24',
 
-                    'icon_fill'    => isset($skill['icon_fill'])
-                        ? trim((string) $skill['icon_fill'])
-                        : null,
+                    'icon_fill'    => !empty($skill['icon_fill'])
+                        ? $this->clean($skill['icon_fill'])
+                        : '#000',
                 ];
-            }, $this->skills);
+            })
+            // 🔥 REMOVE EMPTY ROWS (STRICT)
+            ->filter(function ($skill) {
+                return !empty($skill['skill_name']) &&
+                       !empty($skill['category']) &&
+                       !empty($skill['icon_path']);
+            })
+            ->values()
+            ->toArray();
 
-            $this->merge([
-                'skills' => array_values($skills)
-            ]);
-        }
+        $this->merge([
+            'skills' => $skills
+        ]);
     }
 
     /*
@@ -60,19 +70,10 @@ class StoreResumeStep3Request extends FormRequest
         return [
             'skills' => ['required', 'array', 'min:1'],
 
-            'skills.*.skill_name' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'skills.*.skill_name' => ['required', 'string', 'max:255'],
+            'skills.*.category'   => ['required', 'string', 'max:255'],
 
-            'skills.*.category' => [
-                'required',
-                'string',
-                'max:255'
-            ],
-
-            // 🔐 Safe SVG path validation
+            // 🔐 STRICT SVG PATH VALIDATION
             'skills.*.icon_path' => [
                 'required',
                 'string',
@@ -80,18 +81,47 @@ class StoreResumeStep3Request extends FormRequest
                 'regex:/^[MmLlHhVvCcSsQqTtAaZz0-9,.\-\s]+$/'
             ],
 
+            // 🔐 VIEWBOX VALIDATION (4 numbers only)
             'skills.*.icon_viewbox' => [
                 'nullable',
-                'string',
-                'max:100'
+                'regex:/^\d+\s\d+\s\d+\s\d+$/'
             ],
 
+            // 🔐 HEX COLOR VALIDATION
             'skills.*.icon_fill' => [
                 'nullable',
-                'string',
-                'max:50'
+                'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'
             ],
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CUSTOM VALIDATION (NO DUPLICATE SKILLS)
+    |--------------------------------------------------------------------------
+    */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+
+            $names = [];
+
+            foreach ($this->skills ?? [] as $index => $skill) {
+
+                $name = strtolower(trim($skill['skill_name'] ?? ''));
+
+                if ($name && in_array($name, $names, true)) {
+                    $validator->errors()->add(
+                        "skills.$index.skill_name",
+                        __('Duplicate skill not allowed')
+                    );
+                }
+
+                if ($name) {
+                    $names[] = $name;
+                }
+            }
+        });
     }
 
     /*
@@ -103,27 +133,29 @@ class StoreResumeStep3Request extends FormRequest
     {
         return [
             'skills.required' => __('Skills are required'),
-            'skills.array'    => __('Skills must be a valid array'),
-            'skills.min'      => __('At least one skill is required'),
+            'skills.min'      => __('At least one valid skill is required'),
 
             'skills.*.skill_name.required' => __('Skill name is required'),
-            'skills.*.skill_name.string'   => __('Skill name must be a valid string'),
-            'skills.*.skill_name.max'      => __('Skill name must not exceed 255 characters'),
+            'skills.*.category.required'   => __('Skill category is required'),
 
-            'skills.*.category.required' => __('Skill category is required'),
-            'skills.*.category.string'   => __('Skill category must be a valid string'),
-            'skills.*.category.max'      => __('Skill category must not exceed 255 characters'),
-
-            'skills.*.icon_path.required' => __('Skill icon path is required'),
-            'skills.*.icon_path.string'   => __('Skill icon path must be a valid string'),
-            'skills.*.icon_path.max'      => __('Skill icon path must not exceed 1000 characters'),
+            'skills.*.icon_path.required' => __('SVG path is required'),
             'skills.*.icon_path.regex'    => __('Invalid SVG path format'),
 
-            'skills.*.icon_viewbox.string' => __('Icon viewbox must be a valid string'),
-            'skills.*.icon_viewbox.max'    => __('Icon viewbox must not exceed 100 characters'),
+            'skills.*.icon_viewbox.regex' => __('ViewBox must be like: 0 0 24 24'),
 
-            'skills.*.icon_fill.string' => __('Icon fill must be a valid string'),
-            'skills.*.icon_fill.max'    => __('Icon fill must not exceed 50 characters'),
+            'skills.*.icon_fill.regex' => __('Color must be valid hex (e.g. #000 or #000000)'),
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER
+    |--------------------------------------------------------------------------
+    */
+    private function clean($value)
+    {
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
     }
 }
