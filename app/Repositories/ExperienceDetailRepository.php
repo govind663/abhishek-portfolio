@@ -75,7 +75,7 @@ class ExperienceDetailRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 GET BY EXPERIENCE (NEVER NULL)
+    | GET BY EXPERIENCE (NEVER NULL)
     |--------------------------------------------------------------------------
     */
     public function getByExperience($experienceId): Collection
@@ -102,7 +102,7 @@ class ExperienceDetailRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 BULK INSERT (SMART FILTER + SAFE)
+    | BULK INSERT (SMART FILTER + SAFE)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $details, $experienceId): bool
@@ -116,7 +116,7 @@ class ExperienceDetailRepository
 
         foreach ($details as $detail) {
 
-            // 🔥 skip empty rows
+            // skip empty rows
             if (empty($detail['description'])) continue;
 
             $data[] = [
@@ -137,7 +137,7 @@ class ExperienceDetailRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 FINAL SYNC (ULTRA SAFE VERSION)
+    | FINAL SYNC (ULTRA SAFE VERSION)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $newData, $experienceId): bool
@@ -157,7 +157,7 @@ class ExperienceDetailRepository
         if (!empty($deleteIds)) {
             $this->model
                 ->whereIn('id', $deleteIds)
-                ->where('experience_id', $experienceId) // 🔐 SECURITY
+                ->where('experience_id', $experienceId)
                 ->delete();
         }
 
@@ -174,7 +174,7 @@ class ExperienceDetailRepository
 
                 $this->model
                     ->where('id', $item['id'])
-                    ->where('experience_id', $experienceId) // 🔐 SECURITY
+                    ->where('experience_id', $experienceId)
                     ->update([
                         'description' => $item['description'],
                         'status'      => $item['status'] ?? ExperienceDetail::STATUS_ACTIVE,

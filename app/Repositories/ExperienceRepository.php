@@ -136,7 +136,7 @@ class ExperienceRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 BULK INSERT (TRANSACTION + LOGGING SAFE)
+    | BULK INSERT (TRANSACTION + LOGGING SAFE)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $experiences, $resumeId): bool
@@ -205,7 +205,7 @@ class ExperienceRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 FINAL SYNC (TRANSACTION + SAFE + LOGGING)
+    | FINAL SYNC (TRANSACTION + SAFE + LOGGING)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool

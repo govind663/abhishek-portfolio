@@ -92,7 +92,7 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 GET BY RESUME (SAFE)
+    | GET BY RESUME (SAFE)
     |--------------------------------------------------------------------------
     */
     public function getByResume($resumeId): Collection
@@ -119,7 +119,7 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 BULK INSERT (SAFE + CLEAN + VALIDATION)
+    | BULK INSERT (SAFE + CLEAN + VALIDATION)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $educations, $resumeId): bool
@@ -178,7 +178,7 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 SYNC (FINAL SAFE + LOGGING VERSION)
+    | SYNC (FINAL SAFE + LOGGING VERSION)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool

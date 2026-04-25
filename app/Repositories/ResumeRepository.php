@@ -22,7 +22,7 @@ class ResumeRepository
     public function all($perPage = 10)
     {
         return $this->model
-            ->where('created_by', Auth::id()) // 🔐 user scope
+            ->where('created_by', Auth::id())
             ->latest('id')
             ->paginate($perPage);
     }
@@ -36,13 +36,13 @@ class ResumeRepository
     {
         return $this->model
             ->where('id', $id)
-            ->where('created_by', Auth::id()) // 🔐 secure
+            ->where('created_by', Auth::id())
             ->findOrFail($id);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 FIND WITH RELATIONS (SAFE)
+    | FIND WITH RELATIONS (SAFE)
     |--------------------------------------------------------------------------
     */
     public function findWithRelations($id): Resume
@@ -53,13 +53,13 @@ class ResumeRepository
                 'skills',
                 'experiences.details'
             ])
-            ->where('created_by', Auth::id()) // 🔐 secure
+            ->where('created_by', Auth::id())
             ->findOrFail($id);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 FIND BY ID + USER (OPTIONAL SECURITY)
+    | FIND BY ID + USER (OPTIONAL SECURITY)
     |--------------------------------------------------------------------------
     */
     public function findByUser($id, $userId): Resume
@@ -79,7 +79,7 @@ class ResumeRepository
     {
         return $this->model
             ->active()
-            ->where('created_by', Auth::id()) // 🔐 secure
+            ->where('created_by', Auth::id())
             ->latest('id')
             ->paginate($perPage);
     }
@@ -99,13 +99,13 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 UPDATE (FINAL SAFE VERSION)
+    | UPDATE (FINAL SAFE VERSION)
     |--------------------------------------------------------------------------
     */
     public function update($resume, array $data): Resume
     {
         if (!$resume instanceof Resume) {
-            $resume = $this->find($resume); // 🔐 secure find
+            $resume = $this->find($resume);
         }
 
         $data['updated_by'] = Auth::id();
@@ -127,7 +127,7 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 DELETE WITH RELATIONS (SAFE CASCADE)
+    | DELETE WITH RELATIONS (SAFE CASCADE)
     |--------------------------------------------------------------------------
     */
     public function deleteWithRelations(Resume $resume): bool

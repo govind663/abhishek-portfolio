@@ -45,7 +45,7 @@ class TechnicalSkill extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | CASTS 🔥
+    | CASTS
     |--------------------------------------------------------------------------
     */
     protected $casts = [
@@ -70,7 +70,7 @@ class TechnicalSkill extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | RELATIONSHIPS 🔥
+    | RELATIONSHIPS
     |--------------------------------------------------------------------------
     */
     public function resume()
@@ -80,7 +80,7 @@ class TechnicalSkill extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | ACCESSORS 🔥 (SVG RENDER HELPER)
+    | ACCESSORS (SVG RENDER HELPER)
     |--------------------------------------------------------------------------
     */
     public function getSvgIconAttribute()

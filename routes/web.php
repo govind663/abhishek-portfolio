@@ -185,14 +185,14 @@ Route::group([
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 RESUME WIZARD (AJAX STEP ROUTES)
+    | RESUME WIZARD (AJAX STEP ROUTES)
     |--------------------------------------------------------------------------
     */
     Route::prefix('resume')
         ->middleware(['resume.lock'])
         ->group(function () {
 
-            // 🔁 CREATE FLOW (CREATE WIZARD)
+            // CREATE FLOW (CREATE WIZARD)
             Route::post('/step1', [ResumeController::class, 'storeStep1'])->name('resume.step1');
 
             Route::post('/step2/{id}', [ResumeController::class, 'storeStep2'])->name('resume.step2');
@@ -203,7 +203,7 @@ Route::group([
 
             Route::post('/draft/{id}', [ResumeController::class, 'autoSave'])->name('resume.draft');
 
-            // 🔁 UPDATE FLOW (EDIT WIZARD)
+            // UPDATE FLOW (EDIT WIZARD)
             Route::post('/update-step1/{id}', [ResumeController::class, 'updateStep1'])->name('resume.update.step1');
 
             Route::post('/update-step2/{id}', [ResumeController::class, 'updateStep2'])->name('resume.update.step2');

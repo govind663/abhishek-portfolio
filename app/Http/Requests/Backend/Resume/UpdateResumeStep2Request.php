@@ -75,7 +75,7 @@ class UpdateResumeStep2Request extends FormRequest
 
             'educations.*.start_date' => ['required', 'date', 'before_or_equal:today'],
 
-            // 🔥 FIX: keep rule but remove wildcard dependency issue risk
+            // FIX: keep rule but remove wildcard dependency issue risk
             'educations.*.end_date' => ['nullable', 'date'],
 
             'educations.*.is_current' => ['nullable', 'boolean'],

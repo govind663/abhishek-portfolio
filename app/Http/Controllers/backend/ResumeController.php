@@ -4,16 +4,19 @@ namespace App\Http\Controllers\backend;
 
 use App\Http\Controllers\Controller;
 
+// === STORE REQUESTS ===
 use App\Http\Requests\Backend\Resume\StoreResumeStep1Request;
 use App\Http\Requests\Backend\Resume\StoreResumeStep2Request;
 use App\Http\Requests\Backend\Resume\StoreResumeStep3Request;
 use App\Http\Requests\Backend\Resume\StoreResumeStep4Request;
 
+// === UPDATE REQUESTS ===
 use App\Http\Requests\Backend\Resume\UpdateResumeStep1Request;
 use App\Http\Requests\Backend\Resume\UpdateResumeStep2Request;
 use App\Http\Requests\Backend\Resume\UpdateResumeStep3Request;
 use App\Http\Requests\Backend\Resume\UpdateResumeStep4Request;
 
+// === MODELS ===
 use App\Models\Resume;
 use App\Models\ResumeDraft;
 use App\Services\ResumeService;
@@ -103,7 +106,7 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 🔐 GET RESUME WITH OWNERSHIP CHECK
+    | GET RESUME WITH OWNERSHIP CHECK
     |--------------------------------------------------------------------------
     */
     private function getResumeOrFail(int $resumeId): Resume
@@ -122,7 +125,7 @@ class ResumeController extends Controller
     {
         $resume = $this->getResumeOrFail($resumeId);
 
-        // 🔥 DB based step control
+        // DB based step control
         if ($step > ($resume->current_step + 1)) {
             throw new HttpResponseException(
                 response()->json([
@@ -145,7 +148,7 @@ class ResumeController extends Controller
 
             $data['created_by'] = Auth::id();
 
-            // 🔥 INIT STEP TRACKING
+            // INIT STEP TRACKING
             $data['current_step'] = 1;
             $data['is_completed'] = 0;
 
@@ -172,7 +175,7 @@ class ResumeController extends Controller
         try {
             $this->resumeService->storeStep2($id, $request->validated());
 
-            // ✅ UPDATE STEP
+            // UPDATE STEP
             Resume::where('id', $id)->update(['current_step' => 2]);
 
             return $this->success('Step 2 saved successfully');
@@ -215,7 +218,7 @@ class ResumeController extends Controller
         try {
             $this->resumeService->storeStep4($id, $request->validated());
 
-            // ✅ FINAL COMPLETE
+            // FINAL COMPLETE
             Resume::where('id', $id)->update([
                 'current_step' => 4,
                 'is_completed' => 1
@@ -347,14 +350,14 @@ class ResumeController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | 📄 DOWNLOAD / PREVIEW RESUME PDF (UPGRADED)
+    | DOWNLOAD / PREVIEW RESUME PDF (UPGRADED)
     |--------------------------------------------------------------------------
     */
     public function downloadPdf($id)
     {
         try {
 
-            // 🔐 Secure + full eager loading
+            // Secure + full eager loading
             $resume = Resume::with([
                 'educations',
                 'skills',
@@ -363,10 +366,10 @@ class ResumeController extends Controller
             ->where('created_by', Auth::id())
             ->findOrFail($id);
 
-            // 🔥 Clean filename (safe)
+            // Clean filename (safe)
             $fileName = preg_replace('/[^A-Za-z0-9\-]/', '_', $resume->name) . '_resume.pdf';
 
-            // 🔥 Generate PDF
+            // Generate PDF
             $pdf = Pdf::loadView('backend.resume.pdf', compact('resume'))
                 ->setPaper('A4', 'portrait')
                 ->setOptions([
@@ -375,12 +378,12 @@ class ResumeController extends Controller
                     'defaultFont' => 'DejaVu Sans'
                 ]);
 
-            // 🔥 OPTIONAL: preview OR download
+            // OPTIONAL: preview OR download
             if (request()->has('preview')) {
-                return $pdf->stream($fileName); // 👀 open in browser
+                return $pdf->stream($fileName);
             }
 
-            return $pdf->download($fileName); // ⬇️ download
+            return $pdf->download($fileName);
 
         } catch (\Throwable $e) {
 
@@ -406,7 +409,7 @@ class ResumeController extends Controller
 
             $resume = $this->getResumeOrFail($id);
 
-            // ✅ FIX: JSON input support
+            // FIX: JSON input support
             $data = json_decode(request()->getContent(), true);
             
 

@@ -56,7 +56,7 @@ class ExperienceDetail extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | RELATIONSHIPS 🔥
+    | RELATIONSHIPS
     |--------------------------------------------------------------------------
     */
     public function experience()

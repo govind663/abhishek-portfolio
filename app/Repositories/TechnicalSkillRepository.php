@@ -92,7 +92,7 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 GET BY RESUME (SAFE)
+    | GET BY RESUME (SAFE)
     |--------------------------------------------------------------------------
     */
     public function getByResume($resumeId): Collection
@@ -119,7 +119,7 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 BULK INSERT (SAFE + VALIDATION + LOGGING)
+    | BULK INSERT (SAFE + VALIDATION + LOGGING)
     |--------------------------------------------------------------------------
     */
     public function bulkInsert(array $skills, $resumeId): bool
@@ -136,7 +136,7 @@ class TechnicalSkillRepository
 
             foreach ($skills as $skill) {
 
-                // 🔥 skip empty rows
+                // skip empty rows
                 if (empty($skill['skill_name'])) {
                     continue;
                 }
@@ -176,7 +176,7 @@ class TechnicalSkillRepository
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 FINAL SYNC (SAFE + LOGGING)
+    | FINAL SYNC (SAFE + LOGGING)
     |--------------------------------------------------------------------------
     */
     public function sync(Collection $existing, array $incoming, $resumeId): bool
