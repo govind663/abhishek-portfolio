@@ -13,30 +13,40 @@ class StoreResumeStep2Request extends FormRequest
 
     /*
     |--------------------------------------------------------------------------
-    | PREPARE DATA (CLEAN INPUT)
+    | PREPARE DATA (CLEAN + SAFE NORMALIZATION)
     |--------------------------------------------------------------------------
     */
     protected function prepareForValidation()
     {
-        if (!empty($this->educations) && is_array($this->educations)) {
+        $educationsInput = $this->educations ?? [];
 
-            $educations = array_map(function ($edu) {
-                return [
-                    'degree'      => $this->clean($edu['degree'] ?? null),
-                    'field'       => $this->clean($edu['field'] ?? null),
-                    'institution' => $this->clean($edu['institution'] ?? null),
-                    'university'  => $this->clean($edu['university'] ?? null),
-                    'location'    => $this->clean($edu['location'] ?? null),
-
-                    'start_date'  => !empty($edu['start_date']) ? (string) $edu['start_date'] : null,
-                    'end_date'    => !empty($edu['end_date']) ? (string) $edu['end_date'] : null,
-                ];
-            }, $this->educations);
-
-            $this->merge([
-                'educations' => array_values($educations)
-            ]);
+        if (!is_array($educationsInput)) {
+            $educationsInput = [];
         }
+
+        $educations = array_map(function ($edu) {
+
+            return [
+                'degree'      => $this->clean($edu['degree'] ?? null),
+                'field'       => $this->clean($edu['field'] ?? null),
+                'institution' => $this->clean($edu['institution'] ?? null),
+                'university'  => $this->clean($edu['university'] ?? null),
+                'location'    => $this->clean($edu['location'] ?? null),
+
+                'start_date'  => !empty($edu['start_date'])
+                    ? (string) $edu['start_date']
+                    : null,
+
+                'end_date'    => !empty($edu['end_date'])
+                    ? (string) $edu['end_date']
+                    : null,
+            ];
+
+        }, $educationsInput);
+
+        $this->merge([
+            'educations' => array_values($educations)
+        ]);
     }
 
     /*
@@ -85,18 +95,17 @@ class StoreResumeStep2Request extends FormRequest
                 'before_or_equal:today'
             ],
 
-            // ✅ KEEP original rule (no removal)
+            // ✔ SAFE (no wildcard dependency bug)
             'educations.*.end_date' => [
                 'nullable',
-                'date',
-                'after_or_equal:educations.*.start_date'
+                'date'
             ],
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | 🔥 CUSTOM VALIDATION FIX (WILDCARD BUG FIX)
+    | CUSTOM VALIDATION (LOGICAL RULES)
     |--------------------------------------------------------------------------
     */
     public function withValidator($validator)
@@ -108,7 +117,7 @@ class StoreResumeStep2Request extends FormRequest
                 $start = $edu['start_date'] ?? null;
                 $end   = $edu['end_date'] ?? null;
 
-                // only validate if both dates exist
+                // ✔ End date must be >= start date
                 if (!empty($start) && !empty($end)) {
 
                     if (strtotime($end) < strtotime($start)) {
@@ -151,17 +160,18 @@ class StoreResumeStep2Request extends FormRequest
             'educations.*.start_date.before_or_equal' => __('Start date cannot be in the future'),
 
             'educations.*.end_date.date' => __('End date must be a valid date'),
-            'educations.*.end_date.after_or_equal' => __('End date must be after or equal to start date'),
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | HELPER FUNCTION (Clean Input)
+    | HELPER (CLEAN INPUT)
     |--------------------------------------------------------------------------
     */
     private function clean($value)
     {
-        return $value ? trim(preg_replace('/\s+/', ' ', (string) $value)) : null;
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
     }
 }

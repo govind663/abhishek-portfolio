@@ -15,6 +15,7 @@ use App\Http\Requests\Backend\Resume\UpdateResumeStep3Request;
 use App\Http\Requests\Backend\Resume\UpdateResumeStep4Request;
 
 use App\Models\Resume;
+use App\Models\ResumeDraft;
 use App\Services\ResumeService;
 
 use Illuminate\Http\JsonResponse;
@@ -391,6 +392,64 @@ class ResumeController extends Controller
             ]);
 
             return back()->with('error', 'PDF download failed!');
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | AUTO SAVE DRAFT (STABLE + SAFE + PRO)
+    |--------------------------------------------------------------------------
+    */
+    public function autoSave(int $id): JsonResponse
+    {
+        try {
+
+            $resume = $this->getResumeOrFail($id);
+
+            // ✅ FIX: JSON input support
+            $data = json_decode(request()->getContent(), true);
+            
+
+            if (!is_array($data)) {
+                $data = request()->all();
+            }
+
+            $data = array_filter($data, fn($v) => $v !== null && $v !== '');
+
+            if (empty($data)) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Draft saved'
+                ]);
+            }
+
+            $draft = ResumeDraft::updateOrCreate(
+                ['resume_id' => $resume->id],
+                [
+                    'data'       => $data, // ❌ no json_encode
+                    'updated_by' => Auth::id(),
+                    'created_by' => Auth::id(),
+                ]
+            );
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Draft saved'
+            ]);
+
+        } catch (\Throwable $e) {
+
+            Log::error('AUTO SAVE FAIL', [
+                'msg' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => config('app.debug')
+                    ? $e->getMessage()
+                    : 'Server error while saving draft'
+            ], 500);
         }
     }
 }

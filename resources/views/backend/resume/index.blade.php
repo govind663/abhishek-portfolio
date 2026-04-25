@@ -44,7 +44,6 @@ Manage Resumes
                             <th>Phone</th>
                             <th>Location</th>
                             <th>Status</th>
-                            <th class="no-export">Action</th>
                             <th class="no-export">Edit</th>
                             <th class="no-export">Delete</th>
                         </tr>
@@ -66,27 +65,6 @@ Manage Resumes
                                     @else
                                         <span class="badge badge-warning">Inactive</span>
                                     @endif
-                                </td>
-
-                                <!-- Download / Preview -->
-                                <td class="no-export">
-                                    <div class="btn-group" role="group">
-
-                                        {{-- Preview --}}
-                                        <a href="{{ route('resume.pdf', $resume->id) }}?preview=1" target="_blank">
-                                            <button class="btn btn-info btn-sm">
-                                                Preview
-                                            </button>
-                                        </a>
-
-                                        {{-- Download --}}
-                                        <a href="{{ route('resume.pdf', $resume->id) }}">
-                                            <button class="btn btn-success btn-sm">
-                                                Download
-                                            </button>
-                                        </a>
-
-                                    </div>
                                 </td>
 
                                 <!-- EDIT -->

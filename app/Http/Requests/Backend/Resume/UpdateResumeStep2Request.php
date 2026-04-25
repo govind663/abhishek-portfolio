@@ -25,7 +25,6 @@ class UpdateResumeStep2Request extends FormRequest
 
                 return [
                     'id'          => $edu['id'] ?? null,
-
                     'degree'      => $this->clean($edu['degree'] ?? null),
                     'field'       => $this->clean($edu['field'] ?? null),
                     'institution' => $this->clean($edu['institution'] ?? null),
@@ -65,63 +64,27 @@ class UpdateResumeStep2Request extends FormRequest
                 'nullable',
                 'integer',
                 Rule::exists('educations', 'id')
-                    ->where('resume_id', $resumeId) // 🔐 ownership validation
+                    ->where('resume_id', $resumeId)
             ],
 
-            'educations.*.degree' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            'educations.*.degree' => ['required', 'string', 'max:255'],
+            'educations.*.field' => ['nullable', 'string', 'max:255'],
+            'educations.*.institution' => ['required', 'string', 'max:255'],
+            'educations.*.university' => ['nullable', 'string', 'max:255'],
+            'educations.*.location' => ['nullable', 'string', 'max:255'],
 
-            'educations.*.field' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
+            'educations.*.start_date' => ['required', 'date', 'before_or_equal:today'],
 
-            'educations.*.institution' => [
-                'required',
-                'string',
-                'max:255'
-            ],
+            // 🔥 FIX: keep rule but remove wildcard dependency issue risk
+            'educations.*.end_date' => ['nullable', 'date'],
 
-            'educations.*.university' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.location' => [
-                'nullable',
-                'string',
-                'max:255'
-            ],
-
-            'educations.*.start_date' => [
-                'required',
-                'date',
-                'before_or_equal:today'
-            ],
-
-            'educations.*.is_current' => [
-                'nullable',
-                'boolean'
-            ],
-
-            // ❌ REMOVE broken wildcard validation
-            // ✔ handled manually below
-            'educations.*.end_date' => [
-                'nullable',
-                'date',
-                'required_unless:educations.*.is_current,true'
-            ],
+            'educations.*.is_current' => ['nullable', 'boolean'],
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CUSTOM VALIDATION (FIX WILDCARD BUG)
+    | CUSTOM VALIDATION (SAFE WILDCARD FIX)
     |--------------------------------------------------------------------------
     */
     public function withValidator($validator)
@@ -131,11 +94,16 @@ class UpdateResumeStep2Request extends FormRequest
             foreach ($this->educations ?? [] as $index => $edu) {
 
                 $start = $edu['start_date'] ?? null;
-                $end   = $edu['end_date'] ?? null;
-                $isCurrent = $edu['is_current'] ?? false;
+                $end = $edu['end_date'] ?? null;
+                $isCurrent = (bool) ($edu['is_current'] ?? false);
 
-                // ✔ End >= Start
+                /*
+                |--------------------------------------------------------------------------
+                | 1. END DATE VALIDATION (START <= END)
+                |--------------------------------------------------------------------------
+                */
                 if (!empty($start) && !empty($end)) {
+
                     if (strtotime($end) < strtotime($start)) {
                         $validator->errors()->add(
                             "educations.$index.end_date",
@@ -144,8 +112,12 @@ class UpdateResumeStep2Request extends FormRequest
                     }
                 }
 
-                // ✔ If current → end_date must be null
-                if (!empty($isCurrent) && !empty($end)) {
+                /*
+                |--------------------------------------------------------------------------
+                | 2. CURRENT EDUCATION RULE
+                |--------------------------------------------------------------------------
+                */
+                if ($isCurrent && !empty($end)) {
                     $validator->errors()->add(
                         "educations.$index.end_date",
                         __('End date must be empty if currently studying')
@@ -173,21 +145,14 @@ class UpdateResumeStep2Request extends FormRequest
             'educations.*.degree.required' => __('Degree is required'),
             'educations.*.degree.max'      => __('Degree must not exceed 255 characters'),
 
-            'educations.*.field.max' => __('Field must not exceed 255 characters'),
-
             'educations.*.institution.required' => __('Institution is required'),
             'educations.*.institution.max'      => __('Institution must not exceed 255 characters'),
-
-            'educations.*.university.max' => __('University must not exceed 255 characters'),
-
-            'educations.*.location.max' => __('Location must not exceed 255 characters'),
 
             'educations.*.start_date.required' => __('Start date is required'),
             'educations.*.start_date.date'     => __('Start date must be a valid date'),
             'educations.*.start_date.before_or_equal' => __('Start date cannot be in the future'),
 
             'educations.*.end_date.date' => __('End date must be a valid date'),
-            'educations.*.end_date.required_unless' => __('End date is required unless currently studying'),
 
             'educations.*.is_current.boolean' => __('Current status must be true or false'),
         ];
@@ -200,6 +165,8 @@ class UpdateResumeStep2Request extends FormRequest
     */
     private function clean($value)
     {
-        return $value ? trim(preg_replace('/\s+/', ' ', (string) $value)) : null;
+        return $value
+            ? trim(preg_replace('/\s+/', ' ', (string) $value))
+            : null;
     }
 }

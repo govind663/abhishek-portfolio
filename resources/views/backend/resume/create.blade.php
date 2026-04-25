@@ -149,7 +149,7 @@
                 </ul>
 
                 {{-- TAB CONTENT --}}
-                <form id="resumeForm" enctype="multipart/form-data">
+                <form id="resumeForm" enctype="multipart/form-data" novalidate>
                     @csrf
 
                     <div class="tab-content">

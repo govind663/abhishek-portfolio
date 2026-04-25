@@ -31,18 +31,18 @@ class ResumeService
             return DB::transaction(function () use ($data) {
 
                 return $this->resumeRepository->create([
-                    'name'       => $data['name'],
-                    'title'      => $data['title'] ?? null,
-                    'summary'    => $data['summary'] ?? null,
-                    'location'   => $data['location'] ?? null,
-                    'phone'      => $data['phone'] ?? null,
-                    'email'      => $data['email'] ?? null,
-                    'status'     => $data['status'] ?? Resume::STATUS_ACTIVE,
+                    'name'         => $data['name'],
+                    'title'        => $data['title'] ?? null,
+                    'summary'      => $data['summary'] ?? null,
+                    'location'     => $data['location'] ?? null,
+                    'phone'        => $data['phone'] ?? null,
+                    'email'        => $data['email'] ?? null,
+                    'status'       => $data['status'] ?? Resume::STATUS_ACTIVE,
 
-                    'created_by' => $data['created_by'] ?? Auth::id(),
+                    'created_by'   => $data['created_by'] ?? Auth::id(),
 
-                    'current_step' => $data['current_step'] ?? 1,
-                    'is_completed' => $data['is_completed'] ?? 0,
+                    'current_step' => 1,
+                    'is_completed' => 0,
                 ]);
 
             });
@@ -64,25 +64,32 @@ class ResumeService
 
                 $resume = $this->validateResume($resumeId);
 
-                if (empty($data['educations'])) {
+                $educations = $data['educations'] ?? [];
+
+                if (!is_array($educations) || empty($educations)) {
                     Log::warning('Step2 Empty Education', ['resume_id' => $resumeId]);
                     return false;
                 }
 
                 $result = $this->educationRepository->bulkInsert(
-                    $data['educations'],
+                    $educations,
                     $resume->id
                 );
 
                 if ($result) {
-                    $resume->update(['current_step' => max($resume->current_step, 2)]);
+                    $resume->update([
+                        'current_step' => max($resume->current_step, 2)
+                    ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
-            Log::error('Step2 Store Failed', ['resume_id' => $resumeId, 'error' => $e->getMessage()]);
+            Log::error('Step2 Store Failed', [
+                'resume_id' => $resumeId,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
@@ -99,25 +106,32 @@ class ResumeService
 
                 $resume = $this->validateResume($resumeId);
 
-                if (empty($data['skills'])) {
+                $skills = $data['skills'] ?? [];
+
+                if (!is_array($skills) || empty($skills)) {
                     Log::warning('Step3 Empty Skills', ['resume_id' => $resumeId]);
                     return false;
                 }
 
                 $result = $this->technicalSkillRepository->bulkInsert(
-                    $data['skills'],
+                    $skills,
                     $resume->id
                 );
 
                 if ($result) {
-                    $resume->update(['current_step' => max($resume->current_step, 3)]);
+                    $resume->update([
+                        'current_step' => max($resume->current_step, 3)
+                    ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
-            Log::error('Step3 Store Failed', ['resume_id' => $resumeId, 'error' => $e->getMessage()]);
+            Log::error('Step3 Store Failed', [
+                'resume_id' => $resumeId,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
@@ -134,13 +148,15 @@ class ResumeService
 
                 $resume = $this->validateResume($resumeId);
 
-                if (empty($data['experiences'])) {
+                $experiences = $data['experiences'] ?? [];
+
+                if (!is_array($experiences) || empty($experiences)) {
                     Log::warning('Step4 Empty Experience', ['resume_id' => $resumeId]);
                     return false;
                 }
 
                 $result = $this->experienceRepository->bulkInsert(
-                    $data['experiences'],
+                    $experiences,
                     $resume->id
                 );
 
@@ -151,11 +167,14 @@ class ResumeService
                     ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
-            Log::error('Step4 Store Failed', ['resume_id' => $resumeId, 'error' => $e->getMessage()]);
+            Log::error('Step4 Store Failed', [
+                'resume_id' => $resumeId,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
@@ -191,7 +210,7 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE STEP 2 (SYNC)
+    | UPDATE STEP 2
     |--------------------------------------------------------------------------
     */
     public function updateStep2($resumeId, array $data): bool
@@ -210,10 +229,12 @@ class ResumeService
                 );
 
                 if ($result) {
-                    $resume->update(['current_step' => max($resume->current_step, 2)]);
+                    $resume->update([
+                        'current_step' => max($resume->current_step, 2)
+                    ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
@@ -224,7 +245,7 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE STEP 3 (SYNC)
+    | UPDATE STEP 3
     |--------------------------------------------------------------------------
     */
     public function updateStep3($resumeId, array $data): bool
@@ -243,10 +264,12 @@ class ResumeService
                 );
 
                 if ($result) {
-                    $resume->update(['current_step' => max($resume->current_step, 3)]);
+                    $resume->update([
+                        'current_step' => max($resume->current_step, 3)
+                    ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
@@ -257,7 +280,7 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE STEP 4 (SAFE REPLACE)
+    | UPDATE STEP 4
     |--------------------------------------------------------------------------
     */
     public function updateStep4($resumeId, array $data): bool
@@ -269,12 +292,14 @@ class ResumeService
 
                 $this->experienceRepository->deleteByResume($resume->id);
 
-                if (empty($data['experiences'])) {
+                $experiences = $data['experiences'] ?? [];
+
+                if (empty($experiences)) {
                     return true;
                 }
 
                 $result = $this->experienceRepository->bulkInsert(
-                    $data['experiences'],
+                    $experiences,
                     $resume->id
                 );
 
@@ -285,7 +310,7 @@ class ResumeService
                     ]);
                 }
 
-                return $result;
+                return (bool) $result;
 
             });
         } catch (\Throwable $e) {
@@ -296,7 +321,7 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE RESUME (CASCADE SAFE)
+    | DELETE
     |--------------------------------------------------------------------------
     */
     public function delete(Resume $resume): bool
@@ -308,7 +333,7 @@ class ResumeService
                 $this->technicalSkillRepository->deleteByResume($resume->id);
                 $this->experienceRepository->deleteByResume($resume->id);
 
-                return $this->resumeRepository->delete($resume);
+                return (bool) $this->resumeRepository->delete($resume);
 
             });
         } catch (\Throwable $e) {
@@ -319,45 +344,13 @@ class ResumeService
 
     /*
     |--------------------------------------------------------------------------
-    | FIND
-    |--------------------------------------------------------------------------
-    */
-    public function find($id): Resume
-    {
-        return $this->resumeRepository->find($id);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | FIND WITH RELATIONS
-    |--------------------------------------------------------------------------
-    */
-    public function findWithRelations($id): Resume
-    {
-        return $this->resumeRepository->findWithRelations($id);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 🔐 INTERNAL VALIDATION (SECURE)
+    | VALIDATION
     |--------------------------------------------------------------------------
     */
     protected function validateResume($resumeId): Resume
     {
-        try {
-            return Resume::where('id', $resumeId)
-                ->where('created_by', Auth::id())
-                ->firstOrFail();
-
-        } catch (\Throwable $e) {
-
-            Log::error('Unauthorized Resume Access', [
-                'resume_id' => $resumeId,
-                'user_id'   => Auth::id(),
-                'error'     => $e->getMessage()
-            ]);
-
-            throw $e;
-        }
+        return Resume::where('id', $resumeId)
+            ->where('created_by', Auth::id())
+            ->firstOrFail();
     }
 }

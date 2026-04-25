@@ -41,7 +41,6 @@
             <input type="text" name="phone" id="phone"
                 class="form-control @error('phone') is-invalid @enderror"
                 placeholder="Enter phone number"
-                pattern="[0-9+\-\s()]+"
                 maxlength="20"
                 value="{{ old('phone', isset($resume) ? $resume->phone : '') }}">
         </div>

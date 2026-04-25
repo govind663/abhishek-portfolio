@@ -31,10 +31,12 @@
     <link rel="stylesheet" type="text/css" href="{{ asset('/backend/assets/vendors/styles/icon-font.min.css') }}" />
     <link rel="stylesheet" type="text/css" href="{{ asset('/backend/assets/vendors/styles/style.css') }}" />
 
-    <!-- Toaster Message -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css"/>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    {{-- ================= TOASTR ================= --}}
+    <link rel="stylesheet" href="{{ asset('backend/assets/toastr/css/toastr.min.css') }}">
+
+    {{-- ================= JS (CRITICAL ONLY) ================= --}}
+    <script src="{{ asset('backend/assets/toastr/js/toastr.min.js') }}" defer></script>
+    <script src="{{ asset('backend/assets/toastr/js/toastr.min.js') }}" defer></script>
 </head>
 
 <body class="login-page">

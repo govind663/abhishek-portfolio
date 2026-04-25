@@ -72,18 +72,18 @@
 
         <div class="col-md-4">
             <label><b>Start Date : <span class="text-danger">*</span></b></label>
-            <input type="text"
+            <input type="date"
                 name="educations[{{ $index }}][start_date]"
-                class="form-control date-picker @error("educations.$index.start_date") is-invalid @enderror"
+                class="form-control @error("educations.$index.start_date") is-invalid @enderror"
                 placeholder="Select Start Date"
                 value="{{ old("educations.$index.start_date", $edu['start_date'] ?? '') }}">
         </div>
 
         <div class="col-md-4">
             <label><b>End Date : </b></label>
-            <input type="text"
+            <input type="date"
                 name="educations[{{ $index }}][end_date]"
-                class="form-control date-picker @error("educations.$index.end_date") is-invalid @enderror"
+                class="form-control @error("educations.$index.end_date") is-invalid @enderror"
                 placeholder="Select End Date"
                 value="{{ old("educations.$index.end_date", $edu['end_date'] ?? '') }}">
         </div>
@@ -153,11 +153,11 @@
                     </div>
                     <div class="col-md-4">
                         <label><b>Start Date : <span class="text-danger">*</span></b></label>
-                        <input type="text" name="educations[${window.educationIndex}][start_date]" class="form-control date-picker" placeholder="Start Date">
+                        <input type="date" name="educations[${window.educationIndex}][start_date]" class="form-control" placeholder="Start Date">
                     </div>
                     <div class="col-md-4">
                         <label><b>End Date : </b></label>
-                        <input type="text" name="educations[${window.educationIndex}][end_date]" class="form-control date-picker" placeholder="End Date">
+                        <input type="date" name="educations[${window.educationIndex}][end_date]" class="form-control" placeholder="End Date">
                     </div>
                 </div>
 

@@ -51,8 +51,8 @@
 >
 
 {{-- ================= TOASTR ================= --}}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+<link rel="stylesheet" href="{{ asset('backend/assets/toastr/css/toastr.min.css') }}">
 
 {{-- ================= JS (CRITICAL ONLY) ================= --}}
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js" defer></script>
+<script src="{{ asset('backend/assets/toastr/js/toastr.min.js') }}" defer></script>
+<script src="{{ asset('backend/assets/toastr/js/toastr.min.js') }}" defer></script>

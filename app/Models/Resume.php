@@ -38,6 +38,8 @@ class Resume extends Model
         'phone',
         'email',
         'status',
+        'current_step',
+        'is_completed',
         'created_by',
         'updated_by',
         'deleted_by'

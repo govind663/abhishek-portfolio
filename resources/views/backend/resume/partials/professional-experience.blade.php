@@ -59,18 +59,18 @@
 
         <div class="col-md-4">
             <label><b>Start Date : <span class="text-danger">*</span></b></label>
-            <input type="text"
+            <input type="date"
                 name="experiences[{{ $index }}][start_date]"
-                class="form-control date-picker @error("experiences.$index.start_date") is-invalid @enderror"
+                class="form-control @error("experiences.$index.start_date") is-invalid @enderror"
                 placeholder="Start Date"
                 value="{{ old("experiences.$index.start_date", $ex['start_date'] ?? '') }}">
         </div>
 
         <div class="col-md-4">
             <label><b>End Date</b></label>
-            <input type="text"
+            <input type="date"
                 name="experiences[{{ $index }}][end_date]"
-                class="form-control date-picker @error("experiences.$index.end_date") is-invalid @enderror"
+                class="form-control @error("experiences.$index.end_date") is-invalid @enderror"
                 placeholder="End Date"
                 value="{{ old("experiences.$index.end_date", $ex['end_date'] ?? '') }}">
         </div>
@@ -140,12 +140,12 @@
 
                     <div class="col-md-4">
                         <label><b>Start Date : <span class="text-danger">*</span></b></label>
-                        <input type="text" name="experiences[${window.experienceIndex}][start_date]" class="form-control date-picker" placeholder="Start Date">
+                        <input type="date" name="experiences[${window.experienceIndex}][start_date]" class="form-control" placeholder="Start Date">
                     </div>
 
                     <div class="col-md-4">
                         <label><b>End Date</b></label>
-                        <input type="text" name="experiences[${window.experienceIndex}][end_date]" class="form-control date-picker" placeholder="End Date">
+                        <input type="date" name="experiences[${window.experienceIndex}][end_date]" class="form-control" placeholder="End Date">
                     </div>
                 </div>
 
