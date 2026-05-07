@@ -49,10 +49,21 @@ Thumbs.db            # Windows thumbnail cache
 # Ignore everything inside storage
 /storage/*
 
-# But allow storage/public folder
-!/storage/public/
+# Allow storage/app
+!/storage/app/
 
-# Allow all files/folders inside storage/public
+# Allow storage/app/public
+!/storage/app/public/
+
+# Allow all files/folders inside storage/app/public
+!/storage/app/public/**
+
+# Allow specific image folder
+!/storage/app/public/about-section-images/
+!/storage/app/public/about-section-images/**
+
+# Allow public storage symlink/folder
+!/storage/public/
 !/storage/public/**
 
 # =========================
