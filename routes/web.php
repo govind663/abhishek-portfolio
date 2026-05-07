@@ -213,7 +213,7 @@ Route::group([
         });
 
         // =========================
-        // DRAFT
+        // DRAFT AUTO-SAVE & RETRIEVE
         // =========================
         Route::post('/draft/{id}', [ResumeController::class, 'autoSave'])->name('resume.draft');
         Route::get('/draft/{id}', [ResumeController::class, 'getDraft'])->name('resume.draft.get');

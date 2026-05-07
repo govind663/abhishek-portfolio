@@ -85,6 +85,29 @@
 .cke {
     border: 1px solid #ced4da !important;
 }
+
+.custom-toast {
+    font-family: sans-serif;
+}
+
+.toast-progress {
+    height: 3px;
+    background: #fff;
+    margin-top: 6px;
+    width: 100%;
+    animation: toastProgress 2.5s linear;
+}
+
+@keyframes toastProgress {
+    from { width: 100%; }
+    to { width: 0%; }
+}
+
+.disabled-tab {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 </style>
 @endpush
 
@@ -113,6 +136,8 @@
                     </div>
                 </div>
             </div>
+
+            {{ isset($resume) ? $resume->id : '' }}
 
             <div class="pd-20 card-box mb-30">
                 {{-- NAV TABS --}}
@@ -149,7 +174,7 @@
                 </ul>
 
                 {{-- TAB CONTENT --}}
-                <form id="resumeForm" enctype="multipart/form-data">
+                <form id="resumeForm" enctype="multipart/form-data" novalidate>
                     @csrf
 
                     <div class="tab-content">
@@ -159,8 +184,9 @@
                             <div class="pd-20">
                                 @include('backend.resume.partials.personal-info')
 
-                                <div class="d-flex justify-content-center justify-content-md-end mt-3">
-                                    <button type="submit" value="1" class="btn btn-primary nextBtn" data-step="1">
+                                <div class="d-flex justify-content-between mt-3">
+                                    <div></div>
+                                    <button type="button" class="btn btn-primary nextBtn" data-step="1">
                                         Save & Next
                                     </button>
                                 </div>
@@ -172,8 +198,12 @@
                             <div class="pd-20">
                                 @include('backend.resume.partials.education')
 
-                                <div class="d-flex justify-content-center justify-content-md-end mt-3">
-                                    <button type="submit" value="2" class="btn btn-primary nextBtn" data-step="2">
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button type="button" class="btn btn-secondary prevBtn" data-step="2">
+                                        ← Back
+                                    </button>
+
+                                    <button type="button" class="btn btn-primary nextBtn" data-step="2">
                                         Save & Next
                                     </button>
                                 </div>
@@ -185,8 +215,12 @@
                             <div class="pd-20">
                                 @include('backend.resume.partials.technical-skills')
 
-                                <div class="d-flex justify-content-center justify-content-md-end mt-3">
-                                    <button type="submit" value="3" class="btn btn-primary nextBtn" data-step="3">
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button type="button" class="btn btn-secondary prevBtn" data-step="3">
+                                        ← Back
+                                    </button>
+
+                                    <button type="button" class="btn btn-primary nextBtn" data-step="3">
                                         Save & Next
                                     </button>
                                 </div>
@@ -198,8 +232,12 @@
                             <div class="pd-20">
                                 @include('backend.resume.partials.professional-experience')
 
-                                <div class="d-flex justify-content-center justify-content-md-end mt-3">
-                                    <button type="submit" value="4" class="btn btn-success nextBtn" data-step="4">
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button type="button" class="btn btn-secondary prevBtn" data-step="4">
+                                        ← Back
+                                    </button>
+
+                                    <button type="button" class="btn btn-success nextBtn" data-step="4">
                                         Final Submit
                                     </button>
                                 </div>
@@ -218,57 +256,70 @@
 
 
 @push('scripts')
-<script src="{{ asset('backend/assets/sweetalert/sweetalert2.all.min.js') }}"></script>
+{{-- <script src="{{ asset('backend/assets/sweetalert/sweetalert2.all.min.js') }}"></script> --}}
 <script src="{{ asset('backend/assets/scripts/resume-wizard.js') }}"></script>
 
 <script>
-window.resumeRoutes = {
+    window.resumeConfig = {
+        id: "{{ $resume->id ?? '' }}",
+        mode: "{{ isset($resume) ? 'update' : 'create' }}"
+    };
 
-    step1: "{{ route('resume.create.step1') }}",
-    step2: "{{ route('resume.create.step2', ['id' => '__ID__']) }}",
-    step3: "{{ route('resume.create.step3', ['id' => '__ID__']) }}",
-    step4: "{{ route('resume.create.step4', ['id' => '__ID__']) }}",
+    // ✅ Single source of truth
+    window.resumeId = window.resumeConfig.id || null;
 
-    draft: "{{ route('resume.draft', ['id' => '__ID__']) }}",
-    getDraft: "{{ route('resume.draft.get', ['id' => '__ID__']) }}",
+    window.resumeRoutes = {
 
-    index: "{{ route('resume.index') }}"
-};
+        get(step) {
 
+            const id = window.resumeId;
+            const mode = window.resumeConfig.mode;
 
-// ===============================
-// CLEAN SESSION (FIXED)
-// ===============================
-if (window.location.pathname.includes('/resume/create')) {
-    localStorage.removeItem('resume_id');
-}
+            if (!id && step !== 1) {
+                console.warn(`⚠️ Step ${step} blocked (Resume ID missing)`);
+                return null;
+            }
 
+            const routes = {
+                create: {
+                    step1: "{{ route('resume.create.step1') }}",
+                    step2: "{{ route('resume.create.step2', ['id' => '__ID__']) }}",
+                    step3: "{{ route('resume.create.step3', ['id' => '__ID__']) }}",
+                    step4: "{{ route('resume.create.step4', ['id' => '__ID__']) }}",
+                },
+                update: {
+                    step1: "{{ route('resume.update.step1', ['id' => '__ID__']) }}",
+                    step2: "{{ route('resume.update.step2', ['id' => '__ID__']) }}",
+                    step3: "{{ route('resume.update.step3', ['id' => '__ID__']) }}",
+                    step4: "{{ route('resume.update.step4', ['id' => '__ID__']) }}",
+                }
+            };
 
-// ===============================
-// PREVENT DOUBLE CLICK (IMPROVED)
-// ===============================
-$(document).on('click', '.nextBtn', function () {
+            let url = routes[mode][`step${step}`];
 
-    let btn = $(this);
+            return url.includes('__ID__') ? url.replace('__ID__', id) : url;
+        },
 
-    if (btn.data('loading')) return;
+        // ✅ FIXED (NO EXTRA replace in JS)
+        draft() {
+            if (!window.resumeId) {
+                console.warn("⚠️ Draft blocked (No Resume ID)");
+                return null;
+            }
 
-    btn.data('loading', true);
-    btn.prop('disabled', true);
+            return "{{ route('resume.draft', ['id' => '__ID__']) }}"
+                .replace('__ID__', window.resumeId);
+        },
 
-    setTimeout(() => {
-        btn.data('loading', false);
-        btn.prop('disabled', false);
-    }, 1500);
-});
+        // ✅ FIXED
+        getDraft() {
+            if (!window.resumeId) return null;
 
+            return "{{ route('resume.draft.get', ['id' => '__ID__']) }}"
+                .replace('__ID__', window.resumeId);
+        },
 
-// ===============================
-// EXTRA SUBMIT SAFETY
-// ===============================
-$('#resumeForm').on('submit', function () {
-    $('.nextBtn').prop('disabled', true);
-});
+        index: "{{ route('resume.index') }}"
+    };
 </script>
-
 @endpush

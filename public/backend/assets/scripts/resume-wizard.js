@@ -1,332 +1,390 @@
-$(function () {
+class ResumeWizard {
 
-    let resumeId = localStorage.getItem('resume_id') || null;
-    let isSubmitting = false;
-    let currentStep = 1;
+    constructor() {
+        this.resumeId = window.resumeId || window.resumeConfig?.id || null;
+        this.mode = window.resumeConfig?.mode || "create";
 
-    let draftTimer = null;
-    let lastSavedData = null;
-    let isAutoSaving = false;
+        this.routes = window.resumeRoutes || {};
 
-    let offlineQueue = [];
-    let isOnline = navigator.onLine;
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        this.csrf = csrfMeta ? csrfMeta.getAttribute('content') : "";
 
-    let saveStatusEl = null;
+        this.debounceTimer = null;
+        this.localKey = "resume_draft_local";
+        this.isSavingDraft = false; // ✅ FIX: prevent multiple API calls
 
-    console.log('Resume Wizard Loaded:', resumeId);
+        this.currentStep = 1;
 
-    // ===============================
-    // SAVE STATUS UI
-    // ===============================
-    function initSaveIndicator() {
-        if (!$('#saveStatus').length) {
-            $('body').append(`
-                <div id="saveStatus"
-                     style="position:fixed;bottom:20px;right:20px;
-                     background:#333;color:#fff;padding:8px 12px;
-                     border-radius:6px;font-size:13px;z-index:9999;">
-                    Ready
-                </div>
-            `);
-        }
-        saveStatusEl = $('#saveStatus');
+        this.init();
     }
 
-    function setSaveStatus(text, color = '#333') {
-        if (saveStatusEl) {
-            saveStatusEl.text(text).css('background', color);
-        }
+    init() {
+        this.bindAllSteps();
+        this.bindBackButtons();
+        this.lockTabs();
+
+        this.unlockTabs(this.currentStep);
+
+        this.initBlurAutoSave();
+        this.restoreLocalDraft();
+        this.loadDraft();
     }
 
-    initSaveIndicator();
+    /* ================= TOAST ================= */
+    showToast(message, type = "warning") {
 
-    // ===============================
-    // LOAD DRAFT (IMPROVED)
-    // ===============================
-    function loadDraft() {
+        let toast = document.createElement("div");
 
-        if (!resumeId || !window.resumeRoutes?.getDraft) return;
+        toast.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${message}</span>
+                <span style="margin-left:12px;cursor:pointer;font-weight:bold;font-size:20px;" onclick="this.closest('.custom-toast').remove()">×</span>
+            </div>
+        `;
 
-        $.get(window.resumeRoutes.getDraft.replace('__ID__', resumeId))
-            .done(function (res) {
+        toast.className = "custom-toast";
 
-                if (!res?.data) return;
+        toast.style.cssText = `
+            position:fixed;
+            top:20px;
+            right:20px;
+            padding:14px 18px;
+            background:${type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#ff9800"};
+            color:#fff;
+            border-radius:8px;
+            z-index:9999;
+            font-size:14px;
+            box-shadow:0 6px 18px rgba(0,0,0,0.25);
+        `;
 
-                Object.entries(res.data).forEach(([key, value]) => {
-
-                    let field = $(`[name="${key}"]`);
-
-                    if (!field.length) return;
-
-                    // 🔥 Handle array inputs better
-                    if (Array.isArray(value)) {
-                        field.each(function (i) {
-                            $(this).val(value[i] ?? '');
-                        });
-                    } else {
-                        field.val(value ?? '');
-                    }
-                });
-
-                console.log('Draft loaded ✅');
-            })
-            .fail(() => console.warn('Draft load failed'));
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
     }
 
-    setTimeout(loadDraft, 400);
-
-    // ===============================
-    // ALERT
-    // ===============================
-    function showAlert(type, message) {
-
-        message = message || 'Something went wrong';
-
-        if (type === 'error') {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({ icon: 'error', title: 'Error', text: message });
-            } else {
-                alert(message);
-            }
-        }
-
-        if (type === 'success') {
-            if (typeof toastr !== 'undefined') {
-                toastr.success(message);
-            } else if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success',
-                    text: message,
-                    timer: 1200,
-                    showConfirmButton: false
-                });
-            }
-        }
-    }
-
-    // ===============================
-    // STEP CONTROL (FIXED)
-    // ===============================
-    $(document).on('click', '.nextBtn', function () {
-        currentStep = Number($(this).data('step') || 1); // ✅ FIXED
-    });
-
-    $('#resumeForm').on('submit', function (e) {
-        e.preventDefault();
-
-        if (isSubmitting) return;
-
-        handleStep(currentStep);
-    });
-
-    function handleStep(step) {
-
-        if (isSubmitting) return;
-        isSubmitting = true;
-
-        let form = $('#resumeForm')[0];
-        let formData = new FormData(form);
-
-        let url = '';
-
-        if (step === 1) {
-            url = window.resumeRoutes.step1;
-        } else {
-
-            if (!resumeId) {
-                showAlert('error', 'Step 1 complete karein');
-                isSubmitting = false;
-                return;
-            }
-
-            url =
-                step === 2 ? window.resumeRoutes.step2.replace('__ID__', resumeId) :
-                step === 3 ? window.resumeRoutes.step3.replace('__ID__', resumeId) :
-                step === 4 ? window.resumeRoutes.step4.replace('__ID__', resumeId) :
-                null;
-        }
+    /* ================= API ================= */
+    async request(url, method = "POST", data = {}) {
 
         if (!url) {
-            isSubmitting = false;
+            console.warn("⚠️ API endpoint missing.");
             return;
         }
 
-        let btn = $(`#resumeForm button[data-step="${step}"]`);
-        btn.prop('disabled', true).text('Please wait...');
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": this.csrf,
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
 
-        clearErrors();
+            let result = {};
+            try { result = await response.json(); } catch {}
 
-        $.ajax({
-            url,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
+            if (!response.ok) throw result;
 
-            success: function (res) {
+            return result;
 
-                if (step === 1 && res?.resume_id) {
-                    resumeId = res.resume_id;
-                    localStorage.setItem('resume_id', resumeId);
-
-                    loadDraft();
-                }
-
-                showAlert('success', res.message || 'Saved');
-                goToNextTab(step);
-            },
-
-            error: function (xhr) {
-
-                if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                    handleValidationErrors(xhr.responseJSON.errors);
-                    return;
-                }
-
-                showAlert('error', xhr.responseJSON?.message || 'Server Error');
-            },
-
-            complete: function () {
-                isSubmitting = false;
-                btn.prop('disabled', false)
-                   .text(step === 4 ? 'Final Submit' : 'Save & Next');
-            }
-        });
-    }
-
-    // ===============================
-    // VALIDATION FIX
-    // ===============================
-    function handleValidationErrors(errors) {
-
-        let first = null;
-
-        Object.entries(errors).forEach(([key, msgs]) => {
-
-            let name = key.replace(/\.(\d+)\./g, '[$1][').replace(/\./g, ']');
-
-            let input = $(`[name="${name}"]`);
-
-            if (!input.length) return;
-
-            input.addClass('is-invalid');
-
-            if (!input.next('.invalid-feedback').length) {
-                input.after(`<span class="invalid-feedback">${msgs[0]}</span>`);
-            }
-
-            if (!first) first = input;
-        });
-
-        if (first) {
-            $('html, body').animate({
-                scrollTop: first.offset().top - 100
-            }, 400);
+        } catch (error) {
+            this.handleError(error);
+            throw error;
         }
     }
 
-    function clearErrors() {
-        $('.is-invalid').removeClass('is-invalid');
-        $('.invalid-feedback').remove();
-    }
+    /* ================= ERROR ================= */
+    handleError(error) {
 
-    // ===============================
-    // AUTO SAVE (IMPROVED)
-    // ===============================
-    function autoSaveDraftSmart() {
+        this.clearErrors();
 
-        if (!resumeId || isAutoSaving) return;
+        if (error?.errors) {
+            Object.keys(error.errors).forEach(field => {
 
-        let data = $('#resumeForm').serialize();
+                let input =
+                    document.querySelector(`[name="${field}"]`) ||
+                    document.querySelector(`[name="${field}[]"]`);
 
-        if (data === lastSavedData) return;
+                if (!input) return;
 
-        lastSavedData = data;
-        isAutoSaving = true;
+                input.classList.add("is-invalid");
 
-        setSaveStatus("Saving...", "#3498db");
+                let div = document.createElement("div");
+                div.className = "invalid-feedback";
+                div.innerText = error.errors[field][0];
 
-        $.ajax({
-            url: window.resumeRoutes.draft.replace('__ID__', resumeId),
-            type: 'POST',
-            data,
+                input.closest(".form-group, div")?.appendChild(div);
+            });
 
-            success: function () {
-                setSaveStatus("Saved ✓", "#2ecc71");
-            },
-
-            error: function () {
-                offlineQueue.push({ data, retry: 0 });
-                setSaveStatus("Queued ⏳", "#e67e22");
-            },
-
-            complete: function () {
-                isAutoSaving = false;
-            }
-        });
-    }
-
-    // ===============================
-    // INPUT LISTENER (DEBOUNCE FIX)
-    // ===============================
-    $(document).on('input change', '#resumeForm input, #resumeForm textarea, #resumeForm select', function () {
-
-        if (!resumeId) return;
-
-        if (draftTimer) clearTimeout(draftTimer);
-
-        draftTimer = setTimeout(autoSaveDraftSmart, 1000);
-    });
-
-    // ===============================
-    // OFFLINE SUPPORT (RETRY SAFE)
-    // ===============================
-    function flushOfflineQueue() {
-
-        if (!isOnline || !resumeId || offlineQueue.length === 0) return;
-
-        let item = offlineQueue.shift();
-
-        $.post(window.resumeRoutes.draft.replace('__ID__', resumeId), item.data)
-            .done(() => console.log('Retry success'))
-            .fail(() => {
-                item.retry++;
-                if (item.retry < 3) offlineQueue.push(item);
-            })
-            .always(flushOfflineQueue);
-    }
-
-    window.addEventListener('online', () => {
-        isOnline = true;
-        flushOfflineQueue();
-    });
-
-    window.addEventListener('offline', () => {
-        isOnline = false;
-    });
-
-    // ===============================
-    // NAVIGATION
-    // ===============================
-    function goToNextTab(step) {
-
-        let next = step === 1 ? '#step2' :
-                   step === 2 ? '#step3' :
-                   step === 3 ? '#step4' : '';
-
-        if (step < 4) {
-            $('.nav-tabs a[href="' + next + '"]').tab('show');
         } else {
-
-            localStorage.removeItem('resume_id');
-
-            showAlert('success', 'Resume Completed');
-
-            setTimeout(() => {
-                window.location.href = window.resumeRoutes.index;
-            }, 1000);
+            this.showToast(error?.message || "Something went wrong", "error");
         }
     }
 
+    clearErrors() {
+        document.querySelectorAll(".is-invalid").forEach(el => el.classList.remove("is-invalid"));
+        document.querySelectorAll(".invalid-feedback").forEach(el => el.remove());
+    }
+
+    /* ================= TAB LOCK ================= */
+    lockTabs() {
+
+        document.querySelectorAll('.nav-tabs .nav-link').forEach((tab, index) => {
+
+            tab.addEventListener('click', (e) => {
+
+                if ((index + 1) > this.currentStep || (!this.resumeId && index !== 0)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    this.showToast(`Complete Step ${this.currentStep} first`);
+                }
+            });
+
+            tab.addEventListener('show.bs.tab', (e) => {
+
+                if ((index + 1) > this.currentStep || (!this.resumeId && index !== 0)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+            });
+        });
+    }
+
+    unlockTabs(step = 1) {
+        this.currentStep = step;
+
+        document.querySelectorAll('.nav-tabs .nav-link')
+            .forEach((tab, index) => {
+
+                if ((index + 1) <= step) {
+                    tab.classList.remove('disabled-tab');
+                } else {
+                    tab.classList.add('disabled-tab');
+                }
+            });
+    }
+
+    /* ================= STEPS ================= */
+    bindAllSteps() {
+
+        document.querySelectorAll(".nextBtn").forEach(btn => {
+
+            btn.addEventListener("click", async (e) => {
+                e.preventDefault();
+
+                const step = parseInt(btn.dataset.step);
+                this.clearErrors();
+
+                try {
+                    if (step === 1) await this.submitStep1();
+                    if (step === 2) await this.submitStep2(this.getEducations());
+                    if (step === 3) await this.submitStep3(this.getSkills());
+                    if (step === 4) await this.submitStep4(this.getExperiences());
+                } catch {}
+            });
+        });
+    }
+
+    bindBackButtons() {
+        document.querySelectorAll(".prevBtn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.goToStep(parseInt(btn.dataset.step) - 1);
+            });
+        });
+    }
+
+    async submitStep1() {
+
+        const form = document.getElementById("resumeForm");
+        const data = Object.fromEntries(new FormData(form));
+
+        const res = await this.request(this.routes.get(1), "POST", data);
+
+        if (res?.status) {
+
+            this.resumeId = res.resume_id || this.resumeId;
+
+            window.resumeConfig = window.resumeConfig || {};
+            window.resumeConfig.id = this.resumeId;
+            window.resumeId = this.resumeId;
+
+            this.mode = "update";
+
+            console.log("✅ Resume ID:", this.resumeId);
+
+            // ✅ immediate draft save
+            await this.autoSaveDraft();
+
+            this.unlockTabs(1);
+            this.goToStep(2);
+        }
+    }
+
+    async submitStep2(data) {
+        const res = await this.request(this.routes.get(2), "POST", { educations: data });
+        if (res?.status) {
+            this.unlockTabs(2);
+            this.goToStep(3);
+        }
+    }
+
+    async submitStep3(data) {
+        const res = await this.request(this.routes.get(3), "POST", { skills: data });
+        if (res?.status) {
+            this.unlockTabs(3);
+            this.goToStep(4);
+        }
+    }
+
+    async submitStep4(data) {
+        const res = await this.request(this.routes.get(4), "POST", { experiences: data });
+        if (res?.status) {
+            this.showToast("Resume completed", "success");
+            setTimeout(() => location.href = this.routes.index, 1500);
+        }
+    }
+
+    goToStep(step) {
+        this.currentStep = step;
+        const tab = document.querySelector(`a[href="#step${step}"]`);
+        if (tab) new bootstrap.Tab(tab).show();
+        this.unlockTabs(step);
+    }
+
+    /* ================= AUTO SAVE ================= */
+    initBlurAutoSave() {
+
+        const form = document.getElementById("resumeForm");
+        if (!form) return;
+
+        form.querySelectorAll("input, textarea, select").forEach(field => {
+
+            field.addEventListener("input", () => {
+
+                // ❌ block before ID
+                if (!this.resumeId) return;
+
+                this.debounce(() => this.autoSaveDraft());
+            });
+        });
+    }
+
+    debounce(callback, delay = 800) {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(callback, delay);
+    }
+
+    async autoSaveDraft() {
+
+        if (!this.resumeId || this.isSavingDraft) return;
+
+        this.isSavingDraft = true;
+
+        const data = this.collectDraftData();
+
+        localStorage.setItem(this.localKey, JSON.stringify(data.step1));
+
+        let url = this.routes.draft;
+        if (typeof url === "function") url = url(this.resumeId);
+        else if (typeof url === "string") url = url.replace(':id', this.resumeId);
+
+        if (!url) {
+            console.warn("⚠️ Draft URL missing");
+            this.isSavingDraft = false;
+            return;
+        }
+
+        try {
+            console.log("📡 Draft saving...", url);
+
+            await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": this.csrf
+                },
+                body: JSON.stringify(data)
+            });
+
+            console.log("✅ Draft saved");
+
+        } catch (e) {
+            console.error("❌ Draft error", e);
+        }
+
+        this.isSavingDraft = false;
+    }
+
+    /* ================= DRAFT ================= */
+    restoreLocalDraft() {
+
+        const saved = localStorage.getItem(this.localKey);
+        if (!saved) return;
+
+        try {
+            const data = JSON.parse(saved);
+
+            Object.keys(data).forEach(name => {
+                const input = document.querySelector(`[name="${name}"]`);
+                if (input && !input.value) input.value = data[name];
+            });
+
+        } catch {}
+    }
+
+    async loadDraft() {
+
+        if (!this.resumeId || !this.routes.getDraft) return;
+
+        try {
+            const res = await fetch(this.routes.getDraft());
+            const json = await res.json();
+
+            if (json?.status && json?.data) {
+                this.fillDraft(json.data);
+            }
+
+        } catch {}
+    }
+
+    fillDraft(data) {
+
+        if (data.step1) {
+            Object.keys(data.step1).forEach(name => {
+                const input = document.querySelector(`[name="${name}"]`);
+                if (input) input.value = data.step1[name];
+            });
+        }
+
+        window.educations = data.step2 || [];
+        window.skills = data.step3 || [];
+        window.experiences = data.step4 || [];
+
+        if (this.resumeId) this.unlockTabs(1);
+    }
+
+    /* ================= DATA ================= */
+    collectDraftData() {
+        return {
+            step1: this.getStep1(),
+            step2: this.getEducations(),
+            step3: this.getSkills(),
+            step4: this.getExperiences()
+        };
+    }
+
+    getStep1() {
+        const form = document.getElementById("resumeForm");
+        return form ? Object.fromEntries(new FormData(form)) : {};
+    }
+
+    getEducations() { return window.educations || []; }
+    getSkills() { return window.skills || []; }
+    getExperiences() { return window.experiences || []; }
+}
+
+/* INIT */
+document.addEventListener("DOMContentLoaded", () => {
+    window.resumeWizard = new ResumeWizard();
 });

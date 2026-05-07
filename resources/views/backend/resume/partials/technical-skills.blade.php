@@ -1,3 +1,7 @@
+@php
+    $resume = $resume ?? null;
+@endphp
+
 <div id="skills-wrapper">
 
 @php

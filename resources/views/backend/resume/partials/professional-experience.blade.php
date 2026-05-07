@@ -1,3 +1,7 @@
+@php
+    $resume = $resume ?? null;
+@endphp
+
 <div id="experience-wrapper">
 
 @php

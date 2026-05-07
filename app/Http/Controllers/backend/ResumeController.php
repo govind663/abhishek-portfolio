@@ -41,7 +41,6 @@ class ResumeController extends Controller
     | HELPERS
     |--------------------------------------------------------------------------
     */
-
     private function success(string $message, array $data = []): JsonResponse
     {
         return response()->json(array_merge([
@@ -106,7 +105,7 @@ class ResumeController extends Controller
         return view('backend.resume.create');
     }
 
-    public function edit($id)
+    public function edit(int $id)
     {
         $resume = Resume::with([
             'educations',
@@ -250,16 +249,25 @@ class ResumeController extends Controller
     | AUTO SAVE DRAFT
     |--------------------------------------------------------------------------
     */
-
     public function autoSave(Request $request, int $id): JsonResponse
     {
         try {
             $resume = $this->getResumeOrFail($id);
 
+            // 🔥 JSON body safely decode
             $data = json_decode($request->getContent(), true);
 
+            Log::info('Draft hit raw', ['raw' => $request->getContent()]);
+            Log::info('Draft hit decoded', ['data' => $data]);
+
+            // ✅ fallback (important)
             if (!is_array($data)) {
                 $data = $request->all();
+            }
+
+            // 🔥 ensure array (extra safety)
+            if (!is_array($data)) {
+                $data = [];
             }
 
             // ✅ improved filter (arrays preserved)
@@ -267,14 +275,19 @@ class ResumeController extends Controller
                 return !(is_null($v) || $v === '' || $v === []);
             });
 
+            // 🔥 if nothing useful → skip DB hit
             if (empty($data)) {
-                return response()->json(['status' => true]);
+                return response()->json([
+                    'status' => true,
+                    'message' => 'No changes'
+                ]);
             }
 
             ResumeDraft::updateOrCreate(
                 ['resume_id' => $resume->id],
                 [
-                    'data'       => $data,
+                    // 🔥 ensure JSON format always stored properly
+                    'data'       => json_encode($data),
                     'updated_by' => Auth::id(),
                     'created_by' => Auth::id(),
                 ]
@@ -288,8 +301,9 @@ class ResumeController extends Controller
         } catch (\Throwable $e) {
 
             Log::error('Draft Save Error', [
-                'msg' => $e->getMessage(),
-                'line' => $e->getLine()
+                'msg'  => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
             ]);
 
             return response()->json([
@@ -363,7 +377,7 @@ class ResumeController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function downloadPdf($id)
+    public function downloadPdf(int $id)
     {
         try {
             $resume = Resume::with([
