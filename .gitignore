@@ -1,24 +1,67 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
+# =========================
+# System / OS Files
+# =========================
+*.log                # Log files
+.DS_Store            # macOS system file
+Thumbs.db            # Windows thumbnail cache
+
+# =========================
+# Environment Files
+# =========================
+# .env               # Main env file (uncomment if needed)
+.env.backup          # Backup env file
+.env.production      # Production env file
+
+# =========================
+# PHP / Laravel Cache Files
+# =========================
 .phpactor.json
 .phpunit.result.cache
+
+# =========================
+# IDE / Editor Settings
+# =========================
 /.fleet
 /.idea
 /.nova
 /.phpunit.cache
 /.vscode
 /.zed
+
+# =========================
+# Authentication / Secrets
+# =========================
 /auth.json
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
+
+# =========================
+# Node / Frontend Build Files
+# =========================
+/node_modules        # NPM packages
+/public/build        # Vite/Laravel build files
+/public/hot          # Hot reload file
+
+# =========================
+# Laravel Storage
+# =========================
+/storage/*.key       # Laravel app key files
+/storage/pail        # Temporary storage folder
+
+# Ignore everything inside storage
+/storage/*
+
+# But allow storage/public folder
+!/storage/public/
+
+# Allow all files/folders inside storage/public
+!/storage/public/**
+
+# =========================
+# Vendor Folder
+# =========================
+# /vendor            # Uncomment if vendor should be ignored
+
+# =========================
+# Laravel Homestead
+# =========================
 Homestead.json
 Homestead.yaml
-Thumbs.db
