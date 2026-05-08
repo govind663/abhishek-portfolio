@@ -338,7 +338,8 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
                     decoding="async"
                     class="img-fluid profile-photo rounded-circle"
                     width="400"
-                    height="400">
+                    height="400"
+                    style="aspect-ratio:16/16;">
 
             </div>
 
