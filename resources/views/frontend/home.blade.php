@@ -206,7 +206,8 @@ $profileVersion = ($profilePath && file_exists(public_path('storage/' . $profile
 
                     alt="{{ $hero->name }} Profile Photo" 
                     title="{{ $hero->name }} Profile Photo"
-                    loading="lazy"
+                    loading="eager"
+                    fetchpriority="high"
                     decoding="async"
                     class="img-fluid profile-photo rounded-circle"
                     width="400"
