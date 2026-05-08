@@ -31,6 +31,7 @@ use App\Http\Controllers\backend\StatController;
 use App\Http\Controllers\backend\SkillController;
 use App\Http\Controllers\backend\FeatureController;
 use App\Http\Controllers\backend\ResumeController;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -275,4 +276,150 @@ Route::post('/ai-chat', [AiChatController::class,'chat'])->name('ai.chat')->midd
 */
 Route::get('/.well-known/appspecific/com.chrome.devtools.json', function () {
     return response()->json([]);
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Laravel Server Utility Routes
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| Ye routes sirf temporary production setup/testing ke liye hain.
+| Setup complete hone ke baad in routes ko DELETE ya disable kar dena.
+|
+*/
+
+
+/*
+|--------------------------------------------------------------------------
+| Clear All Cache
+|--------------------------------------------------------------------------
+| Clears:
+| - config cache
+| - route cache
+| - view cache
+| - application cache
+|
+*/
+Route::get('/optimize-clear', function () {
+
+    Artisan::call('optimize:clear');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'All caches cleared successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Optimize Laravel
+|--------------------------------------------------------------------------
+| Creates optimized bootstrap/cache files.
+|
+*/
+Route::get('/optimize', function () {
+
+    Artisan::call('optimize');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Laravel optimized successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Generate Storage Symlink
+|--------------------------------------------------------------------------
+| Creates:
+| public/storage -> storage/app/public
+|
+*/
+Route::get('/storage-link', function () {
+
+    Artisan::call('storage:link');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Storage link created successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Config Cache
+|--------------------------------------------------------------------------
+*/
+Route::get('/config-cache', function () {
+
+    Artisan::call('config:cache');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Config cache created successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Route Cache
+|--------------------------------------------------------------------------
+*/
+Route::get('/route-cache', function () {
+
+    Artisan::call('route:cache');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Route cache created successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| View Cache
+|--------------------------------------------------------------------------
+*/
+Route::get('/view-cache', function () {
+
+    Artisan::call('view:cache');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'View cache created successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Generate APP_KEY
+|--------------------------------------------------------------------------
+| Generates Laravel APP_KEY in .env
+|
+*/
+Route::get('/key-generate', function () {
+
+    Artisan::call('key:generate', [
+        '--force' => true
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'APP_KEY generated successfully.'
+    ]);
+
 });
