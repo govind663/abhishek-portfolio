@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/shivshaktiequipm/public_html/old_folder/abhishek-portfolio/
+    - /bin/rsync -av --delete ./ $DEPLOYPATH
