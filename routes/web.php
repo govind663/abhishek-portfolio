@@ -423,3 +423,44 @@ Route::get('/key-generate', function () {
     ]);
 
 });
+
+/*
+|--------------------------------------------------------------------------
+| Composer Clear Cache
+|--------------------------------------------------------------------------
+| Runs:
+| composer clear-cache
+|
+*/
+Route::get('/composer-clear-cache', function () {
+
+    $output = shell_exec('composer clear-cache 2>&1');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Composer cache cleared successfully.',
+        'output' => $output
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Composer Dump Autoload
+|--------------------------------------------------------------------------
+| Runs:
+| composer dump-autoload
+|
+*/
+Route::get('/composer-dump-autoload', function () {
+
+    $output = shell_exec('composer dump-autoload 2>&1');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Composer autoload dumped successfully.',
+        'output' => $output
+    ]);
+
+});
