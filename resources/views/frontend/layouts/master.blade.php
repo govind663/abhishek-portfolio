@@ -55,7 +55,7 @@
 
     {{-- LOADER (ONLY HOME) --}}
     @if(request()->routeIs('frontend.home'))
-        <x-frontend.loader />
+        {{-- <x-frontend.loader /> --}}
     @endif
 
     {{-- MAIN JS --}}

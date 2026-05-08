@@ -102,7 +102,7 @@ This portfolio highlights:
 📱 Phone: **+91 9004763926**  
 🐙 GitHub: *https://github.com/your-username*  
 🔗 LinkedIn: *https://www.linkedin.com/in/abhishek-laravel-developer/*  
-🌐 Portfolio: *Coming Soon*
+🌐 Portfolio: *https://app.shivshaktiequipments.com*
 
 ---
 
