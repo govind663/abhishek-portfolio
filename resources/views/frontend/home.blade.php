@@ -69,6 +69,7 @@ Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Develope
 ===================================================== */
 
 .hero-bg{
+
     position:absolute;
     inset:0;
 
@@ -82,12 +83,17 @@ Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Develope
 
     z-index:-2;
 
-    /* Stretch Fix */
-    transform:translateZ(0);
+    /* Stable Rendering */
+    transform:translate3d(0,0,0);
 
-    /* Performance */
-    will-change:transform;
+    /* Prevent Flicker */
     backface-visibility:hidden;
+
+    /* Smooth Browser Rendering */
+    image-rendering:auto;
+
+    /* Prevent Repaint Issues */
+    contain:paint;
 }
 
 
