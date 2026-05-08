@@ -1,26 +1,42 @@
-# =========================
-# System / OS Files
-# =========================
-*.log                # Log files
-.DS_Store            # macOS system file
-Thumbs.db            # Windows thumbnail cache
+# =====================================================
+# SYSTEM / OS FILES
+# =====================================================
 
-# =========================
-# Environment Files
-# =========================
-# .env               # Main env file (uncomment if needed)
-.env.backup          # Backup env file
-.env.production      # Production env file
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
 
-# =========================
-# PHP / Laravel Cache Files
-# =========================
+# Ignore log files
+*.log
+
+
+# =====================================================
+# ENVIRONMENT FILES
+# =====================================================
+
+# Main env file
+# Uncomment below if you don't want .env in git
+# .env
+
+.env.backup
+.env.production
+.env.local
+.env.testing
+
+
+# =====================================================
+# PHP / LARAVEL CACHE FILES
+# =====================================================
+
 .phpactor.json
 .phpunit.result.cache
 
-# =========================
-# IDE / Editor Settings
-# =========================
+
+# =====================================================
+# IDE / EDITOR SETTINGS
+# =====================================================
+
 /.fleet
 /.idea
 /.nova
@@ -28,26 +44,51 @@ Thumbs.db            # Windows thumbnail cache
 /.vscode
 /.zed
 
-# =========================
-# Authentication / Secrets
-# =========================
+
+# =====================================================
+# AUTH / SECRET FILES
+# =====================================================
+
 /auth.json
 
-# =========================
-# Node / Frontend Build Files
-# =========================
-/node_modules        # NPM packages
-/public/build        # Vite/Laravel build files
-/public/hot          # Hot reload file
 
-# =========================
-# Laravel Storage
-# =========================
-/storage/*.key       # Laravel app key files
-/storage/pail        # Temporary storage folder
+# =====================================================
+# NODE / FRONTEND FILES
+# =====================================================
+
+/node_modules
+/public/build
+/public/hot
+
+
+# =====================================================
+# LARAVEL STORAGE
+# =====================================================
 
 # Ignore everything inside storage
 /storage/*
+
+# Ignore logs explicitly
+/storage/logs/*
+*.log
+
+# Ignore framework cache/session files
+/storage/framework/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+
+# Ignore Laravel generated key files
+/storage/*.key
+
+# Ignore temporary folders
+/storage/pail
+
+
+# =====================================================
+# ALLOW REQUIRED STORAGE FOLDERS
+# =====================================================
 
 # Allow storage/app
 !/storage/app/
@@ -55,10 +96,10 @@ Thumbs.db            # Windows thumbnail cache
 # Allow storage/app/public
 !/storage/app/public/
 
-# Allow all files/folders inside storage/app/public
+# Allow everything inside public storage
 !/storage/app/public/**
 
-# Allow specific image folder
+# Specific public image folders
 !/storage/app/public/about-section-images/
 !/storage/app/public/about-section-images/**
 
@@ -66,13 +107,27 @@ Thumbs.db            # Windows thumbnail cache
 !/storage/public/
 !/storage/public/**
 
-# =========================
-# Vendor Folder
-# =========================
-# /vendor            # Uncomment if vendor should be ignored
 
-# =========================
-# Laravel Homestead
-# =========================
+# =====================================================
+# VENDOR FOLDER
+# =====================================================
+
+# Uncomment below if vendor should NOT be uploaded
+# /vendor
+
+
+# =====================================================
+# LARAVEL HOMESTEAD
+# =====================================================
+
 Homestead.json
 Homestead.yaml
+
+
+# =====================================================
+# OPTIONAL: TEST / DEBUG FILES
+# =====================================================
+
+npm-debug.log
+yarn-error.log
+pnpm-debug.log

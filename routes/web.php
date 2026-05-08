@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 
 // ===== Middleware
 use App\Http\Middleware\PreventBackHistoryMiddleware;
@@ -31,7 +32,6 @@ use App\Http\Controllers\backend\StatController;
 use App\Http\Controllers\backend\SkillController;
 use App\Http\Controllers\backend\FeatureController;
 use App\Http\Controllers\backend\ResumeController;
-use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -285,22 +285,31 @@ Route::get('/.well-known/appspecific/com.chrome.devtools.json', function () {
 |--------------------------------------------------------------------------
 |
 | IMPORTANT:
-| Ye routes sirf temporary production setup/testing ke liye hain.
-| Setup complete hone ke baad in routes ko DELETE ya disable kar dena.
+| Ye routes sirf temporary setup/testing/debugging ke liye hain.
+| Production setup complete hone ke baad inhe REMOVE kar dena.
 |
 */
 
 
 /*
 |--------------------------------------------------------------------------
-| Clear All Cache
+| Home Test Route
 |--------------------------------------------------------------------------
-| Clears:
-| - config cache
-| - route cache
-| - view cache
-| - application cache
-|
+*/
+Route::get('/server-check', function () {
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Laravel server is working fine.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Clear All Laravel Cache
+|--------------------------------------------------------------------------
 */
 Route::get('/optimize-clear', function () {
 
@@ -308,7 +317,7 @@ Route::get('/optimize-clear', function () {
 
     return response()->json([
         'success' => true,
-        'message' => 'All caches cleared successfully.'
+        'message' => 'All Laravel caches cleared successfully.'
     ]);
 
 });
@@ -318,8 +327,6 @@ Route::get('/optimize-clear', function () {
 |--------------------------------------------------------------------------
 | Optimize Laravel
 |--------------------------------------------------------------------------
-| Creates optimized bootstrap/cache files.
-|
 */
 Route::get('/optimize', function () {
 
@@ -328,26 +335,6 @@ Route::get('/optimize', function () {
     return response()->json([
         'success' => true,
         'message' => 'Laravel optimized successfully.'
-    ]);
-
-});
-
-
-/*
-|--------------------------------------------------------------------------
-| Generate Storage Symlink
-|--------------------------------------------------------------------------
-| Creates:
-| public/storage -> storage/app/public
-|
-*/
-Route::get('/storage-link', function () {
-
-    Artisan::call('storage:link');
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Storage link created successfully.'
     ]);
 
 });
@@ -408,8 +395,6 @@ Route::get('/view-cache', function () {
 |--------------------------------------------------------------------------
 | Generate APP_KEY
 |--------------------------------------------------------------------------
-| Generates Laravel APP_KEY in .env
-|
 */
 Route::get('/key-generate', function () {
 
@@ -424,17 +409,78 @@ Route::get('/key-generate', function () {
 
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| Generate Storage Symlink
+|--------------------------------------------------------------------------
+*/
+Route::get('/storage-link', function () {
+
+    Artisan::call('storage:link');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Storage link created successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Fix Permissions
+|--------------------------------------------------------------------------
+*/
+Route::get('/fix-permissions', function () {
+
+    shell_exec('chmod -R 775 storage');
+    shell_exec('chmod -R 775 bootstrap/cache');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Permissions fixed successfully.'
+    ]);
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Composer Dump Autoload
+|--------------------------------------------------------------------------
+*/
+Route::get('/composer-dump-autoload', function () {
+
+    putenv('HOME=' . base_path());
+    putenv('COMPOSER_HOME=' . base_path('/.composer'));
+
+    $composer = '/opt/cpanel/composer/bin/composer';
+
+    $output = shell_exec("cd " . base_path() . " && $composer dump-autoload 2>&1");
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Composer autoload dumped successfully.',
+        'output' => $output
+    ]);
+
+});
+
+
 /*
 |--------------------------------------------------------------------------
 | Composer Clear Cache
 |--------------------------------------------------------------------------
-| Runs:
-| composer clear-cache
-|
 */
 Route::get('/composer-clear-cache', function () {
 
-    $output = shell_exec('composer clear-cache 2>&1');
+    putenv('HOME=' . base_path());
+    putenv('COMPOSER_HOME=' . base_path('/.composer'));
+
+    $composer = '/opt/cpanel/composer/bin/composer';
+
+    $output = shell_exec("cd " . base_path() . " && $composer clear-cache 2>&1");
 
     return response()->json([
         'success' => true,
@@ -447,20 +493,25 @@ Route::get('/composer-clear-cache', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Composer Dump Autoload
+| View Laravel Logs
 |--------------------------------------------------------------------------
-| Runs:
-| composer dump-autoload
+| TEMPORARY DEBUG ROUTE
+| Remove after debugging
 |
 */
-Route::get('/composer-dump-autoload', function () {
+Route::get('/logs', function () {
 
-    $output = shell_exec('composer dump-autoload 2>&1');
+    $logFile = storage_path('logs/laravel.log');
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Composer autoload dumped successfully.',
-        'output' => $output
-    ]);
+    if (!file_exists($logFile)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Log file not found.'
+        ]);
+    }
+
+    $lines = file($logFile);
+
+    return '<pre>' . implode('', array_slice($lines, -200)) . '</pre>';
 
 });
