@@ -27,26 +27,40 @@ Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Develope
 {{-- Critical CSS --}}
 <style>
 /* =====================================================
-   HERO SECTION OPTIMIZED
-   Fixes:
-   - Hard Refresh Image Stretch
-   - CLS Issue
+   HERO SECTION ULTRA OPTIMIZED
+   Optimized For:
+   - Hard Refresh Stretch Fix
+   - CLS Prevention
    - Mobile Performance
-   - Hero Rendering Shift
+   - Desktop Stability
+   - Lighthouse Optimization
+===================================================== */
+
+
+/* =====================================================
+   HERO SECTION
 ===================================================== */
 
 .hero{
     position:relative;
+    min-height:100vh;
     height:100vh;
-    min-height:700px;
     overflow:hidden;
+    isolation:isolate;
+    background:#000;
 }
 
-/* Mobile Height Optimization */
+
+/* Mobile Safe Height */
 @media (max-width:768px){
+
     .hero{
         min-height:100svh;
+        height:auto;
+        padding-top:90px;
+        padding-bottom:50px;
     }
+
 }
 
 
@@ -57,37 +71,101 @@ Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Develope
 .hero-bg{
     position:absolute;
     inset:0;
+
     width:100%;
     height:100%;
+
     object-fit:cover;
-    object-position:center;
+    object-position:center center;
+
     display:block;
+
+    z-index:-2;
+
+    /* Stretch Fix */
+    transform:translateZ(0);
+
+    /* Performance */
+    will-change:transform;
+    backface-visibility:hidden;
 }
 
 
 /* =====================================================
    PICTURE TAG FIX
-   Prevents layout shift
 ===================================================== */
 
 picture{
-    display:block;
+    position:absolute;
+    inset:0;
+
     width:100%;
     height:100%;
+
+    display:block;
+    overflow:hidden;
+}
+
+
+/* =====================================================
+   VIDEO BACKGROUND FIX
+===================================================== */
+
+.hero video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+}
+
+
+/* =====================================================
+   HERO OVERLAY
+===================================================== */
+
+.hero-overlay{
+    position:absolute;
+    inset:0;
+
+    background:rgba(0,0,0,0.45);
+
+    z-index:-1;
+}
+
+
+/* =====================================================
+   CONTAINER FIX
+===================================================== */
+
+.hero .container{
+    position:relative;
+    z-index:2;
 }
 
 
 /* =====================================================
    PROFILE IMAGE
-   CLS + Responsive Optimization
 ===================================================== */
 
 .profile-photo{
+
     width:140px;
     height:140px;
+
+    border-radius:50%;
+
     object-fit:cover;
+    object-position:center;
+
     display:block;
+
     flex-shrink:0;
+
+    aspect-ratio:1/1;
+
+    /* Prevent Stretch */
+    max-width:140px;
+    max-height:140px;
 }
 
 
@@ -95,20 +173,34 @@ picture{
 @media (min-width:768px){
 
     .profile-photo{
+
         width:400px;
         height:400px;
+
+        max-width:400px;
+        max-height:400px;
     }
 
 }
 
 
 /* =====================================================
-   IMAGE GLOBAL FIX
+   GLOBAL IMAGE FIX
 ===================================================== */
 
 img{
     max-width:100%;
     height:auto;
+}
+
+
+/* =====================================================
+   TEXT OPTIMIZATION
+===================================================== */
+
+.text-overlay{
+    position:relative;
+    z-index:5;
 }
 
 
@@ -119,6 +211,41 @@ img{
 section{
     content-visibility:auto;
     contain-intrinsic-size:1px 1000px;
+}
+
+
+/* =====================================================
+   MOBILE PERFORMANCE BOOST
+===================================================== */
+
+@media (max-width:768px){
+
+    .hero-bg{
+        will-change:auto;
+    }
+
+}
+
+
+/* =====================================================
+   SAFARI / CHROME HARD REFRESH FIX
+===================================================== */
+
+.hero-bg,
+picture img,
+video{
+    image-rendering:auto;
+}
+
+
+/* =====================================================
+   PREVENT LAYOUT SHIFT
+===================================================== */
+
+.row,
+.col-md-4,
+.col-md-8{
+    min-width:0;
 }
 </style>
 @endpush
