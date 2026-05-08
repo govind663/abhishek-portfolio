@@ -26,27 +26,99 @@ Abhishek Jha, Laravel Developer India, PHP Developer Mumbai, Full Stack Develope
 
 {{-- Critical CSS --}}
 <style>
-.hero {
-  position: relative;
-  min-height: 100vh;
-}
-.hero-bg {
-  position: absolute;
-  top:0; left:0;
-  width:100%; height:100%;
-  object-fit:cover;
+/* =====================================================
+   HERO SECTION OPTIMIZED
+   Fixes:
+   - Hard Refresh Image Stretch
+   - CLS Issue
+   - Mobile Performance
+   - Hero Rendering Shift
+===================================================== */
+
+.hero{
+    position:relative;
+    height:100vh;
+    min-height:700px;
+    overflow:hidden;
 }
 
-/* CLS FIX */
-.profile-photo {
-  width:140px;
-  height:140px;
+/* Mobile Height Optimization */
+@media (max-width:768px){
+    .hero{
+        min-height:100svh;
+    }
 }
+
+
+/* =====================================================
+   HERO BACKGROUND
+===================================================== */
+
+.hero-bg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    display:block;
+}
+
+
+/* =====================================================
+   PICTURE TAG FIX
+   Prevents layout shift
+===================================================== */
+
+picture{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+
+/* =====================================================
+   PROFILE IMAGE
+   CLS + Responsive Optimization
+===================================================== */
+
+.profile-photo{
+    width:140px;
+    height:140px;
+    object-fit:cover;
+    display:block;
+    flex-shrink:0;
+}
+
+
+/* Desktop */
 @media (min-width:768px){
-  .profile-photo {
-    width:400px;
-    height:400px;
-  }
+
+    .profile-photo{
+        width:400px;
+        height:400px;
+    }
+
+}
+
+
+/* =====================================================
+   IMAGE GLOBAL FIX
+===================================================== */
+
+img{
+    max-width:100%;
+    height:auto;
+}
+
+
+/* =====================================================
+   PERFORMANCE OPTIMIZATION
+===================================================== */
+
+section{
+    content-visibility:auto;
+    contain-intrinsic-size:1px 1000px;
 }
 </style>
 @endpush
