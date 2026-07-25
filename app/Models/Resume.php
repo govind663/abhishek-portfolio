@@ -68,12 +68,12 @@ class Resume extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | BOOT (🔥 CASCADE + RESTORE FIX)
+    | BOOT (CASCADE + RESTORE FIX)
     |--------------------------------------------------------------------------
     */
     protected static function booted()
     {
-        // ✅ Soft delete cascade
+        // Soft delete cascade
         static::deleting(function ($resume) {
 
             $resume->educations()->delete();
@@ -85,7 +85,7 @@ class Resume extends Model
             });
         });
 
-        // ✅ Restore cascade (PRO LEVEL FIX)
+        // Restore cascade (PRO LEVEL FIX)
         static::restoring(function ($resume) {
 
             $resume->educations()->withTrashed()->restore();

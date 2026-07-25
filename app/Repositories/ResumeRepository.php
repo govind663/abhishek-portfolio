@@ -3,37 +3,39 @@
 namespace App\Repositories;
 
 use App\Models\Resume;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ResumeRepository
 {
-    protected Resume $model;
-
-    public function __construct(Resume $model)
-    {
-        $this->model = $model;
-    }
+    /**
+     * Constructor.
+     */
+    public function __construct(
+        protected Resume $model
+    ) {}
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL (PAGINATED)
+    | INDEX LIST
     |--------------------------------------------------------------------------
     */
-    public function all($perPage = 10)
+    public function all(int $perPage = 10): LengthAwarePaginator
     {
         return $this->model
             ->where('created_by', Auth::id())
-            ->latest('id')
+            ->latest()
             ->paginate($perPage);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FIND (SAFE)
+    | FIND
     |--------------------------------------------------------------------------
     */
-    public function find($id): Resume
+    public function find(int|string $id): Resume
     {
         return $this->model
             ->where('created_by', Auth::id())
@@ -42,46 +44,19 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | FIND WITH RELATIONS (SAFE)
+    | FIND WITH RELATIONS
     |--------------------------------------------------------------------------
     */
-    public function findWithRelations($id): Resume
+    public function findWithRelations(int|string $id): Resume
     {
         return $this->model
             ->with([
                 'educations',
                 'skills',
-                'experiences.details'
+                'experiences.details',
             ])
             ->where('created_by', Auth::id())
             ->findOrFail($id);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | FIND BY USER (OPTIONAL)
-    |--------------------------------------------------------------------------
-    */
-    public function findByUser($id, $userId): Resume
-    {
-        return $this->model
-            ->where('id', $id)
-            ->where('created_by', $userId)
-            ->firstOrFail();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET ACTIVE
-    |--------------------------------------------------------------------------
-    */
-    public function active($perPage = 10)
-    {
-        return $this->model
-            ->active()
-            ->where('created_by', Auth::id())
-            ->latest('id')
-            ->paginate($perPage);
     }
 
     /*
@@ -93,20 +68,24 @@ class ResumeRepository
     {
         try {
 
-            $data['created_by'] = $data['created_by'] ?? Auth::id();
+            $data['created_by'] ??= Auth::id();
             $data['updated_by'] = Auth::id();
 
             $resume = $this->model->create($data);
 
-            Log::info('Resume Created', ['id' => $resume->id]);
+            Log::info('Resume Created', [
+                'resume_id' => $resume->id,
+                'user_id'   => Auth::id(),
+            ]);
 
             return $resume;
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
 
-            Log::error('Resume Create Failed', [
-                'error' => $e->getMessage()
-            ]);
+            $this->logError(
+                'Resume Create Failed',
+                $e
+            );
 
             throw $e;
         }
@@ -114,36 +93,46 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | UPDATE (SAFE + FLEXIBLE)
+    | UPDATE
     |--------------------------------------------------------------------------
     */
-    public function update($resume, array $data): Resume
-    {
-        try {
+    public function update(
+        Resume $resume,
+        array $data
+    ): Resume {
 
-            if (!$resume instanceof Resume) {
-                $resume = $this->find($resume);
-            }
+        try {
 
             $data['updated_by'] = Auth::id();
 
-            // ⚠️ IMPORTANT: null remove, but keep false/0
-            $data = array_filter($data, fn($v) => $v !== null);
+            /*
+            |--------------------------------------------------------------------------
+            | Remove only null values
+            |--------------------------------------------------------------------------
+            */
+            $data = array_filter(
+                $data,
+                static fn ($value) => !is_null($value)
+            );
 
-            if (!empty($data)) {
-                $resume->update($data);
-            }
+            $resume->update($data);
 
-            Log::info('Resume Updated', ['id' => $resume->id]);
+            Log::info('Resume Updated', [
+                'resume_id' => $resume->id,
+                'user_id'   => Auth::id(),
+            ]);
 
             return $resume->refresh();
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
 
-            Log::error('Resume Update Failed', [
-                'resume_id' => $resume instanceof Resume ? $resume->id : $resume,
-                'error' => $e->getMessage()
-            ]);
+            $this->logError(
+                'Resume Update Failed',
+                $e,
+                [
+                    'resume_id' => $resume->id,
+                ]
+            );
 
             throw $e;
         }
@@ -151,28 +140,35 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE SINGLE (SOFT DELETE SAFE)
+    | DELETE
     |--------------------------------------------------------------------------
     */
     public function delete(Resume $resume): bool
     {
         try {
 
-            // ⚠️ prevent double delete
             if ($resume->trashed()) {
                 return false;
             }
 
-            Log::info('Resume Delete', ['id' => $resume->id]);
+            $deleted = $resume->delete();
 
-            return $resume->delete();
-
-        } catch (\Throwable $e) {
-
-            Log::error('Resume Delete Failed', [
+            Log::info('Resume Deleted', [
                 'resume_id' => $resume->id,
-                'error' => $e->getMessage()
+                'user_id'   => Auth::id(),
             ]);
+
+            return $deleted;
+
+        } catch (Throwable $e) {
+
+            $this->logError(
+                'Resume Delete Failed',
+                $e,
+                [
+                    'resume_id' => $resume->id,
+                ]
+            );
 
             throw $e;
         }
@@ -180,44 +176,28 @@ class ResumeRepository
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE WITH RELATIONS (SAFE CASCADE)
+    | PRIVATE LOGGER
     |--------------------------------------------------------------------------
     */
-    public function deleteWithRelations(Resume $resume): bool
-    {
-        try {
 
-            if ($resume->trashed()) {
-                return false;
-            }
+    private function logError(
+        string $message,
+        Throwable $e,
+        array $context = []
+    ): void {
 
-            Log::info('Resume Delete With Relations', ['id' => $resume->id]);
+        Log::error($message, array_merge($context, [
 
-            $resume->load([
-                'educations',
-                'skills',
-                'experiences.details'
-            ]);
+            'user_id' => Auth::id(),
 
-            // 🔥 soft delete children
-            $resume->educations()->delete();
-            $resume->skills()->delete();
+            'message' => $e->getMessage(),
 
-            foreach ($resume->experiences as $experience) {
-                $experience->details()->delete();
-                $experience->delete();
-            }
+            'file' => $e->getFile(),
 
-            return $resume->delete();
+            'line' => $e->getLine(),
 
-        } catch (\Throwable $e) {
+            // 'trace' => $e->getTraceAsString(),
 
-            Log::error('Delete With Relations Failed', [
-                'resume_id' => $resume->id,
-                'error' => $e->getMessage()
-            ]);
-
-            throw $e;
-        }
+        ]));
     }
 }

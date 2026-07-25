@@ -6,6 +6,7 @@ use App\Models\Education;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class EducationRepository
 {
@@ -18,50 +19,185 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL
+    | FIND BY ID
     |--------------------------------------------------------------------------
     */
-    public function all($perPage = 10)
+    public function find(int $id): Education
     {
-        return $this->model
-            ->latest('id')
-            ->paginate($perPage);
+        try {
+
+            $education = $this->model->findOrFail($id);
+
+            Log::info('Education Found', [
+                'education_id' => $education->id,
+            ]);
+
+            return $education;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Education Find Failed', [
+                'education_id' => $id,
+                'message'      => $e->getMessage(),
+                'line'         => $e->getLine(),
+                'file'         => $e->getFile(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FIND
+    | GET BY RESUME
     |--------------------------------------------------------------------------
     */
-    public function find($id)
+    public function getByResume(int $resumeId): Collection
     {
-        return $this->model->findOrFail($id);
+        try {
+
+            $educations = $this->model
+                ->where('resume_id', $resumeId)
+                ->latest('id')
+                ->get();
+
+            Log::info('Education List Retrieved', [
+                'resume_id' => $resumeId,
+                'count'     => $educations->count(),
+            ]);
+
+            return $educations;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Education List Fetch Failed', [
+                'resume_id' => $resumeId,
+                'message'   => $e->getMessage(),
+                'line'      => $e->getLine(),
+                'file'      => $e->getFile(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FIND BY RESUME (SECURE)
+    | CREATE SINGLE
     |--------------------------------------------------------------------------
     */
-    public function findByResume($id, $resumeId)
+    public function create(array $data): Education
     {
-        return $this->model
-            ->where('id', $id)
-            ->where('resume_id', $resumeId)
-            ->firstOrFail();
+        try {
+
+            $userId = Auth::id();
+
+            $data['created_by'] = $userId;
+            $data['updated_by'] = $userId;
+
+            $education = $this->model->create($data);
+
+            Log::info('Education Created', [
+                'education_id' => $education->id,
+                'resume_id'    => $education->resume_id,
+            ]);
+
+            return $education;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Education Create Failed', [
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => $e->getFile(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CREATE
+    | BULK CREATE
     |--------------------------------------------------------------------------
     */
-    public function create(array $data)
+    public function bulkInsert(array $educations, int $resumeId): bool
     {
-        $data['created_by'] = Auth::id();
-        $data['updated_by'] = Auth::id();
+        try {
 
-        return $this->model->create($data);
+            $userId = Auth::id();
+            $rows = [];
+
+            foreach ($educations as $education) {
+
+                // skip empty row
+                if (
+                    empty($education['degree']) &&
+                    empty($education['institution'])
+                ) {
+                    continue;
+                }
+
+                $rows[] = [
+
+                    'resume_id' => $resumeId,
+
+                    'degree' =>
+                        $education['degree'] ?? null,
+
+                    'field' =>
+                        $education['field'] ?? null,
+
+                    'institution' =>
+                        $education['institution'] ?? null,
+
+                    'university' =>
+                        $education['university'] ?? null,
+
+                    'location' =>
+                        $education['location'] ?? null,
+
+                    'start_date' =>
+                        $education['start_date'] ?? null,
+
+                    'end_date' =>
+                        $education['end_date'] ?? null,
+
+                    'status' =>
+                        Education::STATUS_ACTIVE,
+
+                    'created_by' => $userId,
+
+                    'updated_by' => $userId,
+
+                    'created_at' => now(),
+
+                    'updated_at' => now(),
+                ];
+
+            }
+
+            if(empty($rows)){
+                return false;
+            }
+
+            $this->model->insert($rows);
+
+            Log::info('Education Bulk Created',[
+                'resume_id'=>$resumeId,
+                'count'=>count($rows)
+            ]);
+
+            return true;
+
+        }catch(\Throwable $e){
+
+            Log::error('Education Bulk Create Failed',[
+                'error'=>$e->getMessage()
+            ]);
+
+            throw $e;
+        }
     }
 
     /*
@@ -69,117 +205,30 @@ class EducationRepository
     | UPDATE
     |--------------------------------------------------------------------------
     */
-    public function update($id, array $data)
-    {
-        $education = $this->find($id);
-
-        $data['updated_by'] = Auth::id();
-
-        $education->update($data);
-
-        return $education->refresh();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | DELETE SINGLE (SOFT DELETE SAFE)
-    |--------------------------------------------------------------------------
-    */
-    public function delete($id): bool
-    {
-        return (bool) $this->find($id)->delete();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET BY RESUME (SAFE)
-    |--------------------------------------------------------------------------
-    */
-    public function getByResume($resumeId): Collection
-    {
-        return $this->model
-            ->where('resume_id', $resumeId)
-            ->latest('id')
-            ->get();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | DELETE BY RESUME (SOFT DELETE)
-    |--------------------------------------------------------------------------
-    */
-    public function deleteByResume($resumeId): bool
-    {
-        $this->model
-            ->where('resume_id', $resumeId)
-            ->delete(); // ✅ soft delete
-
-        return true;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BULK INSERT (SAFE + FILTERED)
-    |--------------------------------------------------------------------------
-    */
-    public function bulkInsert(array $educations, $resumeId): bool
+    public function update(int $id, array $data): Education
     {
         try {
 
-            if (empty($educations)) {
-                return false;
-            }
+            $education = $this->find($id);
 
-            $now = now();
-            $userId = Auth::id();
-            $data = [];
+            $data['updated_by'] = Auth::id();
 
-            foreach ($educations as $edu) {
+            $education->update(array_filter(
+                $data,
+                fn ($value) => !is_null($value)
+            ));
 
-                // ✅ skip empty rows
-                if (
-                    empty($edu['degree']) &&
-                    empty($edu['institution']) &&
-                    empty($edu['field'])
-                ) {
-                    continue;
-                }
-
-                $data[] = [
-                    'resume_id'   => $resumeId,
-                    'degree'      => $edu['degree'] ?? null,
-                    'field'       => $edu['field'] ?? null,
-                    'institution' => $edu['institution'] ?? null,
-                    'university'  => $edu['university'] ?? null,
-                    'location'    => $edu['location'] ?? null,
-                    'start_date'  => $edu['start_date'] ?? null,
-                    'end_date'    => $edu['end_date'] ?? null,
-                    'status'      => $edu['status'] ?? Education::STATUS_ACTIVE,
-                    'created_by'  => $userId,
-                    'updated_by'  => $userId,
-                    'created_at'  => $now,
-                    'updated_at'  => $now,
-                ];
-            }
-
-            if (empty($data)) {
-                return false;
-            }
-
-            $this->model->insert($data);
-
-            Log::info('Education Bulk Insert Success', [
-                'resume_id' => $resumeId,
-                'count'     => count($data)
+            Log::info('Education Updated', [
+                'education_id' => $education->id,
             ]);
 
-            return true;
+            return $education->refresh();
 
         } catch (\Throwable $e) {
 
-            Log::error('Education Bulk Insert Failed', [
-                'resume_id' => $resumeId,
-                'error'     => $e->getMessage()
+            Log::error('Education Update Failed', [
+                'education_id' => $id,
+                'message'      => $e->getMessage(),
             ]);
 
             throw $e;
@@ -188,88 +237,125 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | SYNC (PRODUCTION SAFE)
+    | SYNC UPDATE MODE
     |--------------------------------------------------------------------------
     */
-    public function sync(Collection $existing, array $incoming, $resumeId): bool
-    {
+    public function sync(
+        Collection $existing,
+        array $incoming,
+        int $resumeId
+    ): bool {
         try {
 
-            $userId = Auth::id();
+            return DB::transaction(function () use ($existing, $incoming, $resumeId) {
 
-            $existingIds = $existing->pluck('id')->toArray();
-            $incomingIds = collect($incoming)->pluck('id')->filter()->toArray();
+                $userId = Auth::id();
 
-            /*
-            |--------------------------------------------------------------------------
-            | DELETE REMOVED (SOFT)
-            |--------------------------------------------------------------------------
-            */
-            $deleteIds = array_diff($existingIds, $incomingIds);
+                /*
+                |--------------------------------------------------------------------------
+                | DELETE REMOVED RECORDS
+                |--------------------------------------------------------------------------
+                */
+                $oldIds = $existing
+                    ->pluck('id')
+                    ->toArray();
 
-            if (!empty($deleteIds)) {
-                $this->model
-                    ->whereIn('id', $deleteIds)
-                    ->where('resume_id', $resumeId)
-                    ->delete();
-            }
+                $newIds = collect($incoming)
+                    ->pluck('id')
+                    ->filter()
+                    ->toArray();
 
-            /*
-            |--------------------------------------------------------------------------
-            | UPSERT
-            |--------------------------------------------------------------------------
-            */
-            foreach ($incoming as $edu) {
+                $deleteIds = array_diff($oldIds, $newIds);
 
-                // ✅ skip empty
-                if (
-                    empty($edu['degree']) &&
-                    empty($edu['institution']) &&
-                    empty($edu['field'])
-                ) {
-                    continue;
+                if (!empty($deleteIds)) {
+                    $this->model
+                        ->where('resume_id', $resumeId)
+                        ->whereIn('id', $deleteIds)
+                        ->delete();
                 }
 
-                $payload = [
-                    'resume_id'   => $resumeId,
-                    'degree'      => $edu['degree'] ?? null,
-                    'field'       => $edu['field'] ?? null,
-                    'institution' => $edu['institution'] ?? null,
-                    'university'  => $edu['university'] ?? null,
-                    'location'    => $edu['location'] ?? null,
-                    'start_date'  => $edu['start_date'] ?? null,
-                    'end_date'    => $edu['end_date'] ?? null,
-                    'updated_by'  => $userId,
-                ];
+                /*
+                |--------------------------------------------------------------------------
+                | CREATE / UPDATE RECORDS
+                |--------------------------------------------------------------------------
+                */
+                foreach ($incoming as $education) {
 
-                if (!empty($edu['id'])) {
+                    // Skip empty row
+                    if (
+                        empty($education['degree']) &&
+                        empty($education['institution'])
+                    ) {
+                        continue;
+                    }
 
-                    // ✅ SAFE UPDATE
-                    $this->model
-                        ->where('id', $edu['id'])
-                        ->where('resume_id', $resumeId)
-                        ->update($payload);
+                    $payload = [
 
-                } else {
+                        'degree'      => $education['degree'] ?? null,
 
-                    // ✅ CREATE
+                        'field'       => $education['field'] ?? null,
+
+                        'institution' => $education['institution'] ?? null,
+
+                        'university'  => $education['university'] ?? null,
+
+                        'location'    => $education['location'] ?? null,
+
+                        'start_date'  => $education['start_date'] ?? null,
+
+                        'end_date'    => $education['end_date'] ?? null,
+
+                        'updated_by'  => $userId,
+
+                    ];
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | UPDATE
+                    |--------------------------------------------------------------------------
+                    */
+                    if (!empty($education['id'])) {
+
+                        $this->model
+                            ->where('resume_id', $resumeId)
+                            ->where('id', $education['id'])
+                            ->update($payload);
+
+                        continue;
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | CREATE
+                    |--------------------------------------------------------------------------
+                    */
+                    $payload['resume_id'] = $resumeId;
                     $payload['created_by'] = $userId;
 
                     $this->model->create($payload);
                 }
-            }
 
-            Log::info('Education Sync Success', [
-                'resume_id' => $resumeId
-            ]);
+                Log::info('Education Sync Completed', [
+                    'resume_id' => $resumeId,
+                    'total'     => count($incoming),
+                    'deleted'   => count($deleteIds),
+                ]);
 
-            return true;
+                return true;
+            });
 
         } catch (\Throwable $e) {
 
             Log::error('Education Sync Failed', [
+
                 'resume_id' => $resumeId,
-                'error'     => $e->getMessage()
+
+                'message'   => $e->getMessage(),
+
+                'line'      => $e->getLine(),
+
+                'file'      => $e->getFile(),
+
             ]);
 
             throw $e;
@@ -278,14 +364,63 @@ class EducationRepository
 
     /*
     |--------------------------------------------------------------------------
-    | ACTIVE LIST
+    | DELETE BY RESUME
     |--------------------------------------------------------------------------
     */
-    public function active($perPage = 10)
+    public function deleteByResume(int $resumeId): bool
     {
-        return $this->model
-            ->active()
-            ->latest('id')
-            ->paginate($perPage);
+        try {
+
+            $count = $this->model
+                ->where('resume_id', $resumeId)
+                ->delete();
+
+            Log::info('Education Deleted By Resume', [
+                'resume_id' => $resumeId,
+                'count'     => $count,
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Education Delete Failed', [
+                'resume_id' => $resumeId,
+                'message'   => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE SINGLE
+    |--------------------------------------------------------------------------
+    */
+    public function delete(int $id): bool
+    {
+        try {
+
+            $education = $this->find($id);
+
+            $education->delete();
+
+            Log::info('Education Deleted', [
+                'education_id' => $id,
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            Log::error('Education Delete Failed', [
+                'education_id' => $id,
+                'message'      => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
 }

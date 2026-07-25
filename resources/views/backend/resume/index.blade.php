@@ -58,12 +58,17 @@ Manage Resumes
                                 <td>{{ $resume->email ?? '-' }}</td>
                                 <td>{{ $resume->phone ?? '-' }}</td>
                                 <td>{{ $resume->location ?? '-' }}</td>
+                                
                                 {{-- Status --}}
                                 <td>
                                     @if($resume->status == 'active')
-                                        <span class="badge badge-success">Active</span>
+                                        <span class="badge badge-success" style="font-size:13px;">
+                                            <i class="fa fa-check-circle mr-1"></i> Active
+                                        </span>
                                     @else
-                                        <span class="badge badge-warning">Inactive</span>
+                                        <span class="badge badge-warning" style="font-size:13px;">
+                                            <i class="fa fa-times-circle mr-1"></i> Inactive
+                                        </span>
                                     @endif
                                 </td>
 

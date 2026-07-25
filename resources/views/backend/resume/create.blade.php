@@ -6,108 +6,51 @@
 
 @push('styles')
 <style>
-/* ===============================
-   INPUT / TEXTAREA
-================================ */
-.form-control.is-invalid {
-    border: 1px solid #dc3545 !important;
-    box-shadow: none !important;
-    transition: none !important;
-}
+    .resume-section-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: #f1f5ff;
+        color: #3b82f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-/* ===============================
-   ERROR MESSAGE
-================================ */
-.invalid-feedback {
-    display: block !important;
-    color: #dc3545 !important;
-    font-weight: 600;
-    margin-top: 5px;
-}
+    .resume-section-icon svg {
+        width: 28px;
+        height: 28px;
+    }
 
-/* ===============================
-   SELECT2 FIX
-================================ */
-.select2-container--default .select2-selection--single {
-    border: 1px solid #ced4da;
-}
+    .resume-section-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.select2-container--default .select2-selection--single.is-invalid {
-    border: 1px solid #dc3545 !important;
-    box-shadow: none !important;
-    transition: none !important;
-}
+    .education-icon {
+        background: #eef6ff;
+        color: #2563eb;
+    }
 
-/* ===============================
-   TEXTAREA EDITOR FIX
-================================ */
+    .resume-section-icon svg {
+        width: 28px;
+        height: 28px;
+    }
 
-/* Summernote */
-.note-editor.is-invalid {
-    border: 1px solid #dc3545 !important;
-}
+    .skills-icon {
+        background: #ecfdf5;
+        color: #0eab48;
+    }
 
-/* TinyMCE */
-.tox.is-invalid {
-    border: 1px solid #dc3545 !important;
-}
-
-/* CKEditor */
-.cke.is-invalid {
-    border: 1px solid #dc3545 !important;
-}
-
-/* remove inner double border */
-.note-editor.is-invalid .note-editable,
-.tox.is-invalid .tox-edit-area,
-.cke.is-invalid .cke_inner {
-    border: none !important;
-}
-
-/* remove animation */
-.note-editor,
-.tox,
-.cke {
-    transition: none !important;
-    box-shadow: none !important;
-}
-
-/* FORCE BORDER */
-.note-editor.is-invalid,
-.tox.is-invalid,
-.cke.is-invalid {
-    border: 1px solid #dc3545 !important;
-}
-
-/* IMPORTANT: prevent override */
-.note-editor,
-.tox,
-.cke {
-    border: 1px solid #ced4da !important;
-}
-
-.custom-toast {
-    font-family: sans-serif;
-}
-
-.toast-progress {
-    height: 3px;
-    background: #fff;
-    margin-top: 6px;
-    width: 100%;
-    animation: toastProgress 2.5s linear;
-}
-
-@keyframes toastProgress {
-    from { width: 100%; }
-    to { width: 0%; }
-}
-
-.disabled-tab {
-    pointer-events: none;
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+    .experience-icon {
+        background: #fff7ed;
+        color: #f97316;
+    }
+    
 </style>
 @endpush
 
@@ -137,113 +80,200 @@
                 </div>
             </div>
 
-            {{ isset($resume) ? $resume->id : '' }}
-
             <div class="pd-20 card-box mb-30">
-                {{-- NAV TABS --}}
-                <ul class="nav nav-tabs customtab" role="tablist">
 
-                    <li class="nav-item">
-                        <a class="nav-link active" data-toggle="tab" href="#step1">
-                            <span class="step-icon"><i class="fa fa-user"></i></span>
-                            Personal Information
-                        </a>
-                    </li>
+                <form id="resumeForm" action="{{ route('resume.store') }}" method="POST" enctype="multipart/form-data" novalidate>
 
-                    <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#step2">
-                            <span class="step-icon"><i class="fa fa-graduation-cap"></i></span>
-                            Education
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#step3">
-                            <span class="step-icon"><i class="fa fa-laptop"></i></span>
-                            Technical Skills
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#step4">
-                            <span class="step-icon"><i class="fa fa-briefcase"></i></span>
-                            Professional Experience
-                        </a>
-                    </li>
-
-                </ul>
-
-                {{-- TAB CONTENT --}}
-                <form id="resumeForm" enctype="multipart/form-data" novalidate>
                     @csrf
 
-                    <div class="tab-content">
-
-                        {{-- STEP 1 --}}
-                        <div class="tab-pane fade show active" id="step1">
-                            <div class="pd-20">
-                                @include('backend.resume.partials.personal-info')
-
-                                <div class="d-flex justify-content-between mt-3">
-                                    <div></div>
-                                    <button type="button" class="btn btn-primary nextBtn" data-step="1">
-                                        Save & Next
-                                    </button>
+                    {{-- Personal Information --}}
+                    <div class="card mb-4">
+                        <div class="card-header d-flex align-items-center justify-content-between bg-white">
+    
+                            <div class="d-flex align-items-center gap-2">
+                                <div>
+                                    <h5 class="mb-0 fw-semibold text-primary">
+                                        Personal Information
+                                    </h5>
+                                    <small class="text-muted text-2xl text-secondary">
+                                        Add your basic personal details
+                                    </small>
                                 </div>
                             </div>
-                        </div>
 
-                        {{-- STEP 2 --}}
-                        <div class="tab-pane fade" id="step2">
-                            <div class="pd-20">
-                                @include('backend.resume.partials.education')
+                            <!-- Right SVG Icon -->
+                            <div class="resume-section-icon">
+                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
 
-                                <div class="d-flex justify-content-between mt-3">
-                                    <button type="button" class="btn btn-secondary prevBtn" data-step="2">
-                                        ← Back
-                                    </button>
+                                    <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"/>
 
-                                    <button type="button" class="btn btn-primary nextBtn" data-step="2">
-                                        Save & Next
-                                    </button>
-                                </div>
+                                    <path d="M3 22C3 18.134 6.13401 15 10 15H14C17.866 15 21 18.134 21 22"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                </svg>
                             </div>
+
                         </div>
+                        <div class="card-body">
+                            @include('backend.resume.partials.personal-info')
+                        </div>
+                    </div>
 
-                        {{-- STEP 3 --}}
-                        <div class="tab-pane fade" id="step3">
-                            <div class="pd-20">
-                                @include('backend.resume.partials.technical-skills')
+                    {{-- Education --}}
+                    <div class="card mb-4">
+                        <div class="card-header d-flex align-items-center justify-content-between bg-white">
 
-                                <div class="d-flex justify-content-between mt-3">
-                                    <button type="button" class="btn btn-secondary prevBtn" data-step="3">
-                                        ← Back
-                                    </button>
-
-                                    <button type="button" class="btn btn-primary nextBtn" data-step="3">
-                                        Save & Next
-                                    </button>
-                                </div>
+                            <div>
+                                <h5 class="mb-0 fw-semibold text-primary">
+                                    Education
+                                </h5>
+                                <small class="text-muted">
+                                    Add your academic qualifications
+                                </small>
                             </div>
-                        </div>
 
-                        {{-- STEP 4 --}}
-                        <div class="tab-pane fade" id="step4">
-                            <div class="pd-20">
-                                @include('backend.resume.partials.professional-experience')
+                            <!-- Education SVG Icon -->
+                            <div class="resume-section-icon education-icon">
 
-                                <div class="d-flex justify-content-between mt-3">
-                                    <button type="button" class="btn btn-secondary prevBtn" data-step="4">
-                                        ← Back
-                                    </button>
+                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
 
-                                    <button type="button" class="btn btn-success nextBtn" data-step="4">
-                                        Final Submit
-                                    </button>
-                                </div>
+                                    <!-- Graduation Cap -->
+                                    <path d="M12 3L2 8L12 13L22 8L12 3Z"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linejoin="round"/>
+
+                                    <path d="M6 10.5V15C6 17.2091 8.68629 19 12 19C15.3137 19 18 17.2091 18 15V10.5"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                    <path d="M22 8V14"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                </svg>
+
                             </div>
-                        </div>
 
+                        </div>
+                        <div class="card-body">
+                            @include('backend.resume.partials.education')
+                        </div>
+                    </div>
+
+                    {{-- Technical Skills --}}
+                    <div class="card mb-4">
+                        <div class="card-header d-flex align-items-center justify-content-between bg-white">
+
+                            <div>
+                                <h5 class="mb-0 fw-semibold text-primary">
+                                    Technical Skills
+                                </h5>
+
+                                <small class="text-muted">
+                                    Add your professional and technical expertise
+                                </small>
+                            </div>
+
+
+                            <!-- Technical Skills SVG Icon -->
+                            <div class="resume-section-icon skills-icon">
+
+                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+
+                                    <!-- Code Brackets -->
+                                    <path d="M8 9L5 12L8 15"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"/>
+
+                                    <path d="M16 9L19 12L16 15"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"/>
+
+                                    <!-- Slash -->
+                                    <path d="M14 7L10 17"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                </svg>
+
+                            </div>
+
+                        </div>
+                        <div class="card-body">
+                            @include('backend.resume.partials.technical-skills')
+                        </div>
+                    </div>
+
+                    {{-- Professional Experience --}}
+                    <div class="card mb-4">
+                        <div class="card-header d-flex align-items-center justify-content-between bg-white">
+
+                            <div>
+                                <h5 class="mb-0 fw-semibold text-primary">
+                                    Professional Experience
+                                </h5>
+
+                                <small class="text-muted">
+                                    Add your previous work experience and achievements
+                                </small>
+                            </div>
+
+
+                            <!-- Professional Experience SVG Icon -->
+                            <div class="resume-section-icon experience-icon">
+
+                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+
+                                    <!-- Briefcase -->
+                                    <path d="M9 7V5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                    <path d="M4 7H20C21.1046 7 22 7.89543 22 9V17C22 18.1046 21.1046 19 20 19H4C2.89543 19 2 18.1046 2 17V9C2 7.89543 2.89543 7 4 7Z"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"/>
+
+                                    <path d="M2 12H22"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                    <path d="M10 12V13C10 13.5523 10.4477 14 11 14H13C13.5523 14 14 13.5523 14 13V12"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"/>
+
+                                </svg>
+
+                            </div>
+
+                        </div>
+                        <div class="card-body">
+                            @include('backend.resume.partials.professional-experience')
+                        </div>
+                    </div>
+
+                    {{-- SUBMIT --}}
+                    <div class="text-right mt-4">
+                        <a href="{{ route('resume.index') }}" class="btn btn-danger">Cancel</a>
+                        <button type="submit" class="btn btn-success">Save Resume</button>
                     </div>
                 </form>
             </div>
@@ -256,70 +286,4 @@
 
 
 @push('scripts')
-{{-- <script src="{{ asset('backend/assets/sweetalert/sweetalert2.all.min.js') }}"></script> --}}
-<script src="{{ asset('backend/assets/scripts/resume-wizard.js') }}"></script>
-
-<script>
-    window.resumeConfig = {
-        id: "{{ $resume->id ?? '' }}",
-        mode: "{{ isset($resume) ? 'update' : 'create' }}"
-    };
-
-    // ✅ Single source of truth
-    window.resumeId = window.resumeConfig.id || null;
-
-    window.resumeRoutes = {
-
-        get(step) {
-
-            const id = window.resumeId;
-            const mode = window.resumeConfig.mode;
-
-            if (!id && step !== 1) {
-                console.warn(`⚠️ Step ${step} blocked (Resume ID missing)`);
-                return null;
-            }
-
-            const routes = {
-                create: {
-                    step1: "{{ route('resume.create.step1') }}",
-                    step2: "{{ route('resume.create.step2', ['id' => '__ID__']) }}",
-                    step3: "{{ route('resume.create.step3', ['id' => '__ID__']) }}",
-                    step4: "{{ route('resume.create.step4', ['id' => '__ID__']) }}",
-                },
-                update: {
-                    step1: "{{ route('resume.update.step1', ['id' => '__ID__']) }}",
-                    step2: "{{ route('resume.update.step2', ['id' => '__ID__']) }}",
-                    step3: "{{ route('resume.update.step3', ['id' => '__ID__']) }}",
-                    step4: "{{ route('resume.update.step4', ['id' => '__ID__']) }}",
-                }
-            };
-
-            let url = routes[mode][`step${step}`];
-
-            return url.includes('__ID__') ? url.replace('__ID__', id) : url;
-        },
-
-        // ✅ FIXED (NO EXTRA replace in JS)
-        draft() {
-            if (!window.resumeId) {
-                console.warn("⚠️ Draft blocked (No Resume ID)");
-                return null;
-            }
-
-            return "{{ route('resume.draft', ['id' => '__ID__']) }}"
-                .replace('__ID__', window.resumeId);
-        },
-
-        // ✅ FIXED
-        getDraft() {
-            if (!window.resumeId) return null;
-
-            return "{{ route('resume.draft.get', ['id' => '__ID__']) }}"
-                .replace('__ID__', window.resumeId);
-        },
-
-        index: "{{ route('resume.index') }}"
-    };
-</script>
 @endpush
